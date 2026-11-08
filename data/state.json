@@ -1,0 +1,91 @@
+{
+ "notices": {
+  "18275": {
+   "type": "monthly",
+   "side": "appellate",
+   "hearingDate": null,
+   "uploadedAt": "2026-10-03T19:34:48+05:30"
+  },
+  "18479": {
+   "type": "supplementary",
+   "side": "appellate",
+   "hearingDate": "2026-11-06",
+   "uploadedAt": "2026-11-06T12:21:39+05:30"
+  },
+  "18480": {
+   "type": "supplementary",
+   "side": "appellate",
+   "hearingDate": "2026-11-06",
+   "uploadedAt": "2026-11-06T12:23:49+05:30"
+  },
+  "18482": {
+   "type": "supplementary",
+   "side": "appellate",
+   "hearingDate": "2026-11-06",
+   "uploadedAt": "2026-11-06T15:34:22+05:30"
+  },
+  "18483": {
+   "type": "daily",
+   "side": "original",
+   "hearingDate": "2026-11-09",
+   "uploadedAt": "2026-11-06T18:05:31+05:30"
+  },
+  "18484": {
+   "type": "daily",
+   "side": "jalpaiguri",
+   "hearingDate": "2026-11-09",
+   "uploadedAt": "2026-11-06T21:05:12+05:30"
+  },
+  "18485": {
+   "type": "daily",
+   "side": "appellate",
+   "hearingDate": "2026-11-09",
+   "uploadedAt": "2026-11-06T22:12:56+05:30"
+  },
+  "18486": {
+   "type": "daily",
+   "side": "appellate",
+   "hearingDate": "2026-11-07",
+   "uploadedAt": "2026-11-07T12:08:18+05:30"
+  },
+  "18487": {
+   "type": "daily",
+   "side": "portblair",
+   "hearingDate": "2026-11-09",
+   "uploadedAt": "2026-11-07T12:21:13+05:30"
+  },
+  "18488": {
+   "type": "daily",
+   "side": "appellate",
+   "hearingDate": "2026-11-08",
+   "uploadedAt": "2026-11-08T10:21:03+05:30"
+  }
+ },
+ "archive": {
+  "https://www.calcuttahighcourt.gov.in/downloads/old_cause_lists/AS/cla09112026.pdf": {
+   "type": "daily",
+   "side": "appellate",
+   "hearingDate": "2026-11-09",
+   "uploadedAt": "2026-11-06T16:46:27.000Z",
+   "size": 607437
+  },
+  "https://www.calcuttahighcourt.gov.in/downloads/old_cause_lists/OS/cl09112026.pdf": {
+   "type": "daily",
+   "side": "original",
+   "hearingDate": "2026-11-09",
+   "uploadedAt": "2026-11-06T12:36:48.000Z",
+   "size": 170032
+  },
+  "https://www.calcuttahighcourt.gov.in/downloads/old_cause_lists/J/clj09112026.pdf": {
+   "type": "daily",
+   "side": "jalpaiguri",
+   "hearingDate": "2026-11-09",
+   "uploadedAt": "2026-11-06T15:33:38.000Z",
+   "size": 178875
+  }
+ },
+ "heartbeats": {},
+ "lastArchiveCheck": "2026-11-08T07:45:36.049Z",
+ "failures": 0,
+ "lastRun": "2026-11-08T07:45:56.509Z"
+}

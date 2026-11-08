@@ -6,7 +6,9 @@
   "scripts": {
     "build": "node tools/build.js",
     "test": "node --test tests/*.test.js",
-    "parse": "node tools/parse.js"
+    "parse": "node tools/parse.js",
+    "watch": "node watcher/watch.js",
+    "report": "node watcher/report.js"
   },
   "devDependencies": {
     "pdfjs-dist": "3.11.174"

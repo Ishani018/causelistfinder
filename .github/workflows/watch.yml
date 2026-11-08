@@ -1,0 +1,41 @@
+# Phase 0: check the court website on a schedule and log every new cause list.
+# Only data/state.json and data/log.jsonl are committed back; downloaded PDFs are not kept here.
+name: Watch cause lists
+
+on:
+  schedule:
+    - cron: '*/10 1-17 * * *'        # every 10 min, 06:30–23:20 IST (GitHub may start runs late)
+    - cron: '15,45 0,18-23 * * *'    # every 30 min overnight
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: watch
+  cancel-in-progress: false
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Check the court website
+        run: node watcher/watch.js
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      - name: Save the log
+        run: |
+          git config user.name "cause-list-watcher"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/state.json data/log.jsonl
+          if git diff --cached --quiet; then echo "nothing new"; exit 0; fi
+          git commit -m "watch: $(git diff --cached --numstat data/log.jsonl | awk '{print $1}') new log lines"
+          git pull --rebase --quiet && git push

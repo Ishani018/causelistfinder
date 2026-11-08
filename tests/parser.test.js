@@ -21,6 +21,8 @@ test('case numbers typed in different ways read the same', () => {
     'MAT/812/2026, CAN No. 1 of 2026': 'MAT/812/2026',
     'WP 5120(W)/2019': 'WPA/5120/2019',
     'CRA (DB) 201/2026': 'CRA(DB)/201/2026',
+    'AO-COM/27/2025': 'AO-COM/27/2025',
+    'fmat-ipd 5 of 2026': 'FMAT-IPD/5/2026',
   };
   for (const [typed, key] of Object.entries(cases)) assert.strictEqual(normaliseCase(typed)?.key, key, typed);
   assert.strictEqual(normaliseCase('Sukanta Ghosh'), null);
@@ -67,4 +69,19 @@ test('circuit bench list: every printed case number is readable and searchable',
   assert.strictEqual(hit.hits.length, 1);
   assert.strictEqual(hit.hits[0].serial, '1');
   assert.strictEqual(miss.hits.length + miss.linked.length + miss.near.length + miss.raw.length, 0);
+});
+
+test('original side: rows that start with the application keep their main case and item', async () => {
+  const list = await readList(fixture('original-side-vacation-2026-11-09.pdf'));
+  assert.strictEqual(list.entries.length, 5);
+  const [first, second, third] = list.entries;
+  assert.strictEqual(first.serial, '1');
+  assert.strictEqual(first.caseNo, 'WPO/329/2026');
+  assert.strictEqual(first.ia, 'GA/1/2026');
+  assert.strictEqual(first.advocate, 'ADITYA KANODIA');
+  assert.match(first.respondent, /INDIAN BANK/);
+  assert.strictEqual(second.caseNo, 'WPO/330/2026');
+  assert.strictEqual(third.caseNo, 'WPO/520/2026');
+  assert.match(first.list, /DAILY/);
+  assert.deepStrictEqual(unreadCaseNumbers(list), []);
 });

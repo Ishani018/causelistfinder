@@ -51,7 +51,7 @@ The notices list is at `/Notices/CL?page=N`, 10 per page, newest first. Each ite
 
 ## Phases
 
-**Phase 0: watch only (1–2 weeks of regular sittings).** Run the watcher with no users. Log every list and notice, run the parser and coverage check on each, and record upload times. Done when a full week shows zero unread case numbers and zero crashes on every list type, including Original Side, which hasn't been tested yet.
+**Phase 0: watch only (1–2 weeks of regular sittings). Built: see `watcher/README.md`.** Run the watcher with no users. Log every list and notice, run the parser and coverage check on each, and record upload times. Done when a full week shows zero unread case numbers and zero crashes on every list type, including Original Side, which hasn't been tested yet.
 
 **Phase 1: pilot (3–4 weeks).** 3–5 users: the contact who gave the case list, plus clerks or juniors of busy advocates. Add their lists by hand. Telegram or email alerts. Each evening, the clerk compares our alert against their own manual check. Measure: missed listings (target zero), false alerts, and minutes from upload to alert.
 

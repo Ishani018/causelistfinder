@@ -1,5 +1,8 @@
 // Reads a cause list PDF in Node with the same parser the page uses.
 const fs = require('fs');
+// Text extraction needs no canvas; these stubs stop pdf.js warning that rendering is unavailable.
+globalThis.DOMMatrix ??= class DOMMatrix {};
+globalThis.Path2D ??= class Path2D {};
 const pdfjs = require('pdfjs-dist/legacy/build/pdf.js');
 const { createParser, keyOf } = require('../src/parser.js');
 

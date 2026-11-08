@@ -3,3 +3,4 @@ node_modules/
 !tests/fixtures/*.pdf
 *.pdf.json
 .DS_Store
+data/pdfs/

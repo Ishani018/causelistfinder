@@ -160,9 +160,14 @@ footer { font-size: 13px; color: var(--muted); padding-top: 8px; }
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script>
 // Cause-list parser: turns pdf.js text items into case entries with bench context.
-const CASE_RE = /^[A-Z][A-Z.]*(\([A-Z.]+\))?(\.[A-Z]+)?\/\d+\/\d{4}$/;
+// Case type: WPA, WP.ST, WPA(P), CRA(DB), and hyphenated ones such as AO-COM or FMAT-IPD.
+const TYPE = '[A-Z][A-Z.]*(?:-[A-Z][A-Z.]*)*(?:\\([A-Z.]+\\))?(?:\\.[A-Z]+)?';
+const CASE_RE = new RegExp(`^${TYPE}\\/\\d+\\/\\d{4}$`);
 const SERIAL_RE = /^((wt)?\d+[A-Z]?|in|with|\(in)$/i;
-const CASE_TOKEN_RE = /(?<![A-Z\/])[A-Z][A-Z.]*(?:\([A-Z.]+\))?(?:\.[A-Z]+)?\/\d+\/\d{4}\b/g;
+const CASE_TOKEN_RE = new RegExp(`(?<![A-Z\\/-])${TYPE}\\/\\d+\\/\\d{4}\\b`, 'g');
+// Original Side rows can start with the application: "1  IA NO. GA/1/2026 … In WPO/329/2026".
+const IA_FIRST_RE = new RegExp(`^IA\\s*NO\\.?\\s*:?\\s*(${TYPE}\\/\\d+\\/\\d{4})$`, 'i');
+const IN_MAIN_RE = new RegExp(`^\\(?in\\s+(${TYPE}\\/\\d+\\/\\d{4})\\)?$`, 'i');
 
 function groupLines(items) {
   const rows = [];
@@ -229,7 +234,14 @@ function createParser() {
       }
 
       const [a, b] = its;
-      if (b && SERIAL_RE.test(a.s) && CASE_RE.test(b.s.replace(/\s+/g, ''))) {
+      // "In WPO/329/2026" under an IA-first row is that row's main case, not a new item.
+      if (b && cur && cur.awaitingMain && /^\(?in$/i.test(a.s) && CASE_RE.test(b.s.replace(/\s+/g, ''))) {
+        cur.caseNo = b.s.replace(/\s+/g, ''); cur.awaitingMain = false;
+        for (const it of its.slice(2)) place(it);
+        continue;
+      }
+      const iaFirst = b && /^\d+[A-Z]?$/.test(a.s) && b.s.replace(/\s+/g, ' ').match(IA_FIRST_RE);
+      if (b && SERIAL_RE.test(a.s) && (iaFirst || CASE_RE.test(b.s.replace(/\s+/g, '')))) {
         inHeader = false;
         close();
         const rest = its.slice(2);
@@ -238,8 +250,8 @@ function createParser() {
         lastSerial = serial;
         const ax = rest.find(i => i.x > (rest[0] ? rest[0].x : b.x) + 100);
         cur = {
-          serial, rel, caseNo: b.s.replace(/\s+/g, ''),
-          remarks: [], parties: [], adv: [[], []], ia: '',
+          serial, rel, caseNo: iaFirst ? null : b.s.replace(/\s+/g, ''), awaitingMain: !!iaFirst,
+          remarks: [], parties: [], adv: [[], []], ia: iaFirst ? iaFirst[1].replace(/\s+/g, '') : '',
           cx: b.x, px: rest[0] && rest[0] !== ax ? rest[0].x : null, ax: ax ? ax.x : null, ax2: null,
           court: bench.court, benchType: bench.type, time: bench.time, judges: bench.judges.slice(),
           date: bench.date, list: bench.list, section, page: pageNo,
@@ -271,6 +283,11 @@ function createParser() {
   }
 
   function place(it) {
+    if (cur.awaitingMain && it.x < (cur.px ?? Infinity) - 12) {
+      const m = it.s.replace(/\s+/g, ' ').match(IN_MAIN_RE);
+      if (m) { cur.caseNo = m[1].replace(/\s+/g, ''); cur.awaitingMain = false; return; }
+    }
+    if (cur.ax == null && cur.px != null && it.x > cur.px + 100) cur.ax = it.x;
     if (cur.px == null && it.x > cur.cx + 60 && (cur.ax == null || it.x < cur.ax - 12)) cur.px = it.x;
     if (cur.ax != null && it.x > cur.ax + 60 && cur.ax2 == null) cur.ax2 = it.x;
     if (cur.ax2 != null && it.x >= cur.ax2 - 12) cur.adv[1].push(it.s);
@@ -287,9 +304,9 @@ function createParser() {
       const p = join(e.parties);
       const parts = p.split(/\s+VS\.?(?:\s+|$)/i);
       const remarks = join(e.remarks);
-      const linked = (remarks + ' ' + p).match(/\b[A-Z][A-Z.]*(?:\([A-Z.]+\))?(?:\.[A-Z]+)?\/\d+\/\d{4}\b/g) || [];
+      const linked = (remarks + ' ' + p).match(CASE_TOKEN_RE) || [];
       return {
-        serial: e.serial, rel: e.rel, caseNo: e.caseNo,
+        serial: e.serial, rel: e.rel, caseNo: e.caseNo || e.ia,
         petitioner: (parts[0] || '').trim(), respondent: parts.slice(1).join(' VS ').trim(),
         advocate: join(e.adv[0]), advocate2: join(e.adv[1]),
         remarks, linked: [...new Set(linked)].filter(c => c !== e.caseNo), ia: e.ia,
@@ -316,7 +333,7 @@ function normaliseCase(raw) {
 
 function parseOne(raw) {
   let s = raw.toUpperCase().trim().replace(/\bOF\b/g, '/').replace(/[–—]/g, '-');
-  const m = s.match(/^([A-Z][A-Z.\s]*?(?:\(\s*[A-Z.\s]+\))?(?:\.[A-Z]+)?)\s*[\/\-\s.]\s*0*(\d+)\s*[\/\-\s]\s*(\d{2}|\d{4})$/);
+  const m = s.match(/^([A-Z][A-Z.\s]*?(?:-[A-Z][A-Z.]*)*(?:\(\s*[A-Z.\s]+\))?(?:\.[A-Z]+)?)\s*[\/\-\s.]\s*0*(\d+)\s*[\/\-\s]\s*(\d{2}|\d{4})$/);
   if (!m) return null;
   let type = m[1].replace(/\s+/g, '');
   type = type.replace(/\.(?=[A-Z])/g, '').replace(/\.$/, '');
