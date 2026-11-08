@@ -314,7 +314,7 @@ footer { margin-top: 28px; font-size: 13px; color: var(--muted); display: flex; 
       <section class="panel checker" id="daypick" aria-labelledby="daypick-title" hidden>
         <div>
           <h2 id="daypick-title">Check the cause list</h2>
-          <p class="sub">Live from the Calcutta High Court website: <b>every bench</b> and the <b>supplementary lists</b> for the day.</p>
+          <p class="sub">Read live from the Calcutta High Court website, <b>including the supplementary lists</b> for the day.</p>
         </div>
         <div class="seg" id="days" role="radiogroup" aria-label="Hearing day"></div>
         <div class="sides" id="sides" role="group" aria-label="Which side"></div>
@@ -325,7 +325,7 @@ footer { margin-top: 28px; font-size: 13px; color: var(--muted); display: flex; 
       </section>
       <ul class="lists" id="lists"></ul>
       <div class="panel progress" id="progress" hidden><span class="hint" id="progressText"></span><div class="bar"><i id="barFill"></i></div></div>
-      <label class="drop" id="drop">
+      <label class="drop" id="drop" hidden>
         <input type="file" id="file" accept="application/pdf,.pdf" multiple>
         <span class="drop-icon" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M12 17v-6"/><path d="m9.5 13.5 2.5-2.5 2.5 2.5"/></svg></span>
         <span class="drop-text"><b id="dropTitle">Upload the cause list PDF</b><span id="dropHint">Daily, supplementary or monthly. Drop it anywhere on this page.</span></span>
@@ -985,7 +985,7 @@ async function loadWatch() {
     const res = await fetch('/api/status', { cache: 'no-store' });
     if (!res.ok) throw new Error();
     d = await res.json();
-  } catch { return; }   // not on the hosted site (or watcher not set up): keep the box hidden
+  } catch { $('drop').hidden = false; return; }   // not on the hosted site: PDF upload is the way in
   $('watch').hidden = false;
   if ($('daypick').hidden) { $('daypick').hidden = false; if (!lists.length) $('drop').hidden = true; drawDays(); }
   const stale = !d.lastCheck || Date.now() - Date.parse(d.lastCheck) > 20 * 60000 || d.consecutiveFailures > 0;
