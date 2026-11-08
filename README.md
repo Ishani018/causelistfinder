@@ -1,0 +1,38 @@
+# Cause List Finder
+
+Find your cases in Calcutta High Court cause lists.
+
+Save your case numbers once, then upload the day's cause list PDFs (daily, supplementary, monthly). For each case you get the court, item number, time and judges. You also see the court's notes for that bench ("not sitting", "today matters will be taken up serially") and a link to the bench's video hearing, plus a clear list of cases that are not listed. A **Copy for WhatsApp** button turns the result into a message.
+
+Everything runs in the browser. The PDF never leaves the device, and the case list is saved only in that browser.
+
+## Use it
+
+Open `index.html` in a browser. It is a single self-contained page that loads pdf.js from cdnjs. It can also be served as is, for example with GitHub Pages.
+
+## What it handles
+
+- Daily, supplementary, monthly and warning lists from the Appellate Side and the Jalpaiguri circuit bench (Original Side not tested yet).
+- Case numbers typed any way: `mat 1451 of 2026`, `WPA (P) 156/25`, `W.P.A./4410/2026`, `CAN 2/2024 in WPST/71/2015`, `CPAN. No. 2041 of 2024`, old `WP 5120(W)/2019`.
+- Rows tagged "with" the item above, and `in …` rows (the main case under a contempt or application), searchable like any other case.
+- A fallback for every case number printed anywhere in the PDF, so a number that is not part of a regular row is still reported with its page.
+- "New since last check" for listings that appeared after your previous check of the same date.
+
+On the October 2026 monthly list (1,567 pages) it reads 30,295 listings in about 4 seconds. On the 13 October daily list (632 pages) it reads 10,758 in about 2. In both, every printed case number is accounted for.
+
+## Develop
+
+```bash
+npm install
+npm test          # parser tests on real cause lists in tests/fixtures
+npm run build     # src/template.html + src/parser.js + src/example.json -> index.html
+npm run parse -- path/to/list.pdf    # read any cause list and run the coverage check
+```
+
+- `src/parser.js` turns pdf.js text items into case entries, with bench, court notes and VC link. It also holds the case number normaliser and the search. It runs unchanged in the browser and in Node.
+- `src/template.html` is the page; `tools/build.js` inlines the parser into it.
+- `tools/read-list.js` reads a PDF in Node with the same parser; `tools/parse.js` is the command-line check.
+
+## Next
+
+`docs/PLAN.md` covers automatic alerts: watching the court website, parsing each new list, and messaging users. It includes the measured publishing times (daily lists around 21:00 the evening before; supplementary lists on the same day between 10:00 and 15:00).

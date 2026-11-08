@@ -1,0 +1,490 @@
+<title>Cause List Finder</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* Layout: one narrow column, phone first. Step 1 my cases, step 2 upload, then the answer. */
+:root {
+  --bg: #F4F5F7;
+  --panel: #FFFFFF;
+  --ink: #18202E;
+  --muted: #5E6778;
+  --rule: #DDE1E8;
+  --tape: #A8232B;
+  --tape-soft: #F7E4E5;
+  --ok: #17663F; --ok-soft: #E2F2E8;
+  --warn: #8A5A00; --warn-soft: #FCF0D6;
+  --f-display: "Spectral", Georgia, serif;
+  --f-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #12151C; --panel: #1B2029; --ink: #E8EAF0; --muted: #9CA4B4; --rule: #2D3441;
+  --tape: #E8666D; --tape-soft: #3B2127; --ok: #73CF9C; --ok-soft: #17342A; --warn: #EBBC5E; --warn-soft: #3B2F15;
+  color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #12151C; --panel: #1B2029; --ink: #E8EAF0; --muted: #9CA4B4; --rule: #2D3441;
+  --tape: #E8666D; --tape-soft: #3B2127; --ok: #73CF9C; --ok-soft: #17342A; --warn: #EBBC5E; --warn-soft: #3B2F15;
+  color-scheme: dark; }
+
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 16px; line-height: 1.5; }
+.wrap { max-width: 640px; margin: 0 auto; padding-block: 24px 64px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex; flex-direction: column; gap: 16px; }
+header { display: flex; flex-direction: column; gap: 2px; padding-bottom: 4px; }
+h1 { font: 700 30px/1.15 var(--f-display); margin: 0; }
+header p { margin: 0; color: var(--muted); }
+
+.step { background: var(--panel); border: 1px solid var(--rule); border-radius: 10px; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+.step-title { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 17px; margin: 0; }
+.num { width: 26px; height: 26px; border-radius: 50%; background: var(--tape); color: #fff; display: grid; place-items: center; font-size: 14px; flex: none; }
+.done .num { background: var(--ok); }
+.step-title .count { margin-left: auto; font-weight: 500; color: var(--muted); font-size: 14px; }
+
+.add { display: flex; gap: 8px; }
+.add input { flex: 1; min-width: 0; font: 500 16px var(--f-mono); padding: 12px; border: 1px solid var(--rule); border-radius: 8px; background: var(--bg); color: var(--ink); }
+.btn { font: 600 16px/1 var(--f-body); border-radius: 8px; padding: 12px 18px; cursor: pointer; border: 1px solid var(--tape); background: var(--tape); color: #fff; min-height: 46px; }
+.btn.quiet { background: transparent; color: var(--tape); }
+.btn:focus-visible, input:focus-visible, .upload:focus-within, .link:focus-visible, summary:focus-visible { outline: 2px solid var(--tape); outline-offset: 2px; }
+.small { font-size: 14px; color: var(--muted); margin: 0; }
+
+.mycases { display: flex; flex-wrap: wrap; gap: 8px; list-style: none; margin: 0; padding: 0; }
+.mycases li { display: flex; align-items: center; gap: 4px; background: var(--bg); border: 1px solid var(--rule); border-radius: 6px; padding: 4px 4px 4px 10px; font: 500 14px var(--f-mono); }
+.mycases button { border: 0; background: none; color: var(--muted); font-size: 18px; line-height: 1; padding: 4px 6px; cursor: pointer; border-radius: 4px; }
+.mycases button:hover { color: var(--tape); }
+.link { background: none; border: 0; padding: 0; color: var(--tape); font: 500 14px var(--f-body); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; align-self: flex-start; }
+
+.upload { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; border: 2px dashed var(--rule); border-radius: 10px; padding: 22px 16px; cursor: pointer; }
+.upload:hover, .upload.over { border-color: var(--tape); background: var(--tape-soft); }
+.upload input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.upload strong { font-size: 17px; color: var(--tape); }
+.loaded { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.loaded .what { flex: 1; min-width: 0; }
+.loaded .what b { display: block; }
+.bar { height: 8px; background: var(--rule); border-radius: 4px; overflow: hidden; }
+.bar i { display: block; height: 100%; width: 0; background: var(--tape); }
+.error { color: var(--tape); font-size: 15px; margin: 0; }
+
+.example { background: var(--warn-soft); color: var(--warn); border-radius: 8px; padding: 10px 12px; font-size: 14px; font-weight: 500; }
+.answer { font: 700 26px/1.2 var(--f-display); margin: 8px 0 0; }
+.answer.none { color: var(--muted); }
+.group-title { font-weight: 600; font-size: 15px; margin: 8px 0 0; display: flex; align-items: center; gap: 8px; }
+.dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+.dot.ok { background: var(--ok); } .dot.warn { background: var(--warn); } .dot.no { background: var(--muted); }
+
+#results { display: flex; flex-direction: column; gap: 10px; }
+.list { display: flex; flex-direction: column; gap: 10px; }
+.row { background: var(--panel); border: 1px solid var(--rule); border-left: 4px solid var(--ok); border-radius: 10px; overflow: hidden; }
+.row summary { list-style: none; cursor: pointer; padding: 14px 16px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 12px; align-items: center; }
+.row summary::-webkit-details-marker { display: none; }
+.row .case { font: 600 15px var(--f-mono); overflow-wrap: anywhere; }
+.row .place { font-size: 18px; font-weight: 600; }
+.row .place .nw { white-space: nowrap; }
+.row .place em { font-style: normal; color: var(--tape); }
+.row .bench { font-size: 14px; color: var(--muted); grid-column: 1 / -1; }
+.row .chev { grid-row: 1; grid-column: 2; color: var(--muted); font-size: 14px; white-space: nowrap; }
+.row[open] .chev .more { display: none; }
+.row:not([open]) .chev .less { display: none; }
+.details { margin: 0; padding: 12px 16px 14px; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 14px; font-size: 14px; border-top: 1px solid var(--rule); }
+.details dt { color: var(--muted); }
+.details dd { margin: 0; overflow-wrap: anywhere; }
+.flag { font-size: 13px; color: var(--warn); font-weight: 600; grid-column: 1 / -1; }
+
+.check { background: var(--panel); border: 1px solid var(--rule); border-left: 4px solid var(--warn); border-radius: 10px; padding: 12px 16px; display: flex; flex-direction: column; gap: 2px; }
+.check .case { font: 600 15px var(--f-mono); }
+.check p { margin: 0; font-size: 15px; }
+.notlisted { display: flex; flex-wrap: wrap; gap: 8px; list-style: none; margin: 0; padding: 0; }
+.notlisted li { font: 500 14px var(--f-mono); color: var(--muted); background: var(--panel); border: 1px solid var(--rule); border-radius: 6px; padding: 6px 10px; }
+.byname { list-style: none; margin: 0; padding: 4px 16px 12px; border-top: 1px solid var(--rule); max-height: 360px; overflow-y: auto; }
+.byname li { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; border-bottom: 1px solid var(--rule); font-size: 14px; }
+.byname li:last-child { border-bottom: 0; }
+.byname .case { font: 500 14px var(--f-mono); }
+.lists { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.lists li { display: flex; align-items: center; gap: 10px; background: var(--bg); border: 1px solid var(--rule); border-radius: 8px; padding: 10px 6px 10px 12px; }
+.lists .what { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.lists .what b { font-weight: 600; }
+.lists .what span { font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
+.lists button { border: 0; background: none; color: var(--muted); font-size: 20px; line-height: 1; padding: 6px 10px; cursor: pointer; border-radius: 4px; }
+.lists button:hover { color: var(--tape); }
+.tip { margin: 0; font-size: 14px; background: var(--warn-soft); color: var(--warn); border-radius: 8px; padding: 10px 12px; }
+.tags { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.tag { font: 600 11px/1 var(--f-body); letter-spacing: .06em; text-transform: uppercase; padding: 4px 7px; border-radius: 4px; background: var(--bg); color: var(--muted); border: 1px solid var(--rule); }
+.tag.new { background: var(--ok-soft); color: var(--ok); border-color: transparent; }
+.tag.supp { background: var(--tape-soft); color: var(--tape); border-color: transparent; }
+.tag.note { background: var(--warn-soft); color: var(--warn); border-color: transparent; }
+.courtnote { grid-column: 1 / -1; font-size: 14px; background: var(--warn-soft); color: var(--warn); border-radius: 6px; padding: 8px 10px; margin-top: 6px; }
+.date-head { font: 600 13px/1 var(--f-body); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin: 10px 0 0; }
+.details a { color: var(--tape); }
+.share { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 6px; }
+
+footer { font-size: 13px; color: var(--muted); padding-top: 8px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Cause List Finder</h1>
+    <p>Find your cases in the Calcutta High Court cause list.</p>
+  </header>
+
+  <section class="step" id="step1">
+    <h2 class="step-title"><span class="num">1</span> My cases <span class="count" id="count"></span></h2>
+    <form class="add" id="addForm">
+      <input id="newCase" aria-label="Case number" placeholder="e.g. WPA 1234/2025" autocomplete="off" autocapitalize="characters" spellcheck="false">
+      <button class="btn" type="submit">Add</button>
+    </form>
+    <p class="small">You can paste many at once. Your list is saved on this device, so you only add cases once.</p>
+    <ul class="mycases" id="mycases"></ul>
+    <button class="link" id="clearAll" type="button" hidden>Remove all</button>
+  </section>
+
+  <section class="step" id="step2">
+    <h2 class="step-title"><span class="num">2</span> Cause lists</h2>
+    <ul class="lists" id="lists"></ul>
+    <div id="progress" hidden><p class="small" id="progressText"></p><div class="bar"><i id="barFill"></i></div></div>
+    <label class="upload" id="drop">
+      <input type="file" id="file" accept="application/pdf,.pdf" multiple>
+      <strong id="dropTitle">Upload cause list PDF</strong>
+      <span class="small" id="dropHint">Daily, supplementary or monthly list. You can choose several at once.</span>
+    </label>
+    <p class="error" id="uploadError" hidden></p>
+    <p class="tip" id="suppTip" hidden>Supplementary lists often come out late at night or the next morning, and are taken up first. Add them here when they are published.</p>
+  </section>
+
+  <section id="results" aria-live="polite"></section>
+
+  <footer>The PDF stays on your device. Always confirm against the official list.</footer>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+/*PARSER*/
+</script>
+<script>
+const EXAMPLE = /*EXAMPLE*/;
+const WORKER = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const fmt = n => n.toLocaleString('en-IN');
+
+let index = null, results = EXAMPLE, showingExample = true;
+let lists = [], nextListId = 1;
+let cases = load();
+
+// Cases seen at earlier checks, per hearing date, so new listings can be marked. Snapshot taken once per visit.
+const SEEN_KEY = 'clf.seen';
+function readSeen() { try { return JSON.parse(localStorage.getItem(SEEN_KEY) || '{}') || {}; } catch { return {}; } }
+const seenAtStart = readSeen();
+const rowKey = (label, e) => `${label}|${e.court}|${e.serial}|${e.kind}`;
+function rememberSeen(listed) {
+  const seen = readSeen();
+  for (const { label, e } of listed) { const d = e.dateKey; (seen[d] = seen[d] || []).includes(rowKey(label, e)) || seen[d].push(rowKey(label, e)); }
+  const keep = Object.keys(seen).sort().slice(-14);
+  try { localStorage.setItem(SEEN_KEY, JSON.stringify(Object.fromEntries(keep.map(k => [k, seen[k]])))); } catch {}
+}
+const isNew = (label, e) => !!seenAtStart[e.dateKey] && !seenAtStart[e.dateKey].includes(rowKey(label, e));
+
+// "Tuesday The 13th October 2026" -> short label and a sortable key.
+const MONTHS = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
+function parseDate(s) {
+  const m = (s || '').match(/(\w+day)?\D*?(\d{1,2})(?:st|nd|rd|th)?\s+([A-Za-z]+)\s+(\d{4})/);
+  if (!m) return { short: s || 'Date not printed', key: s || '' };
+  const mi = MONTHS.indexOf(m[3].toLowerCase());
+  return { short: `${m[1] ? m[1].slice(0, 3) + ' ' : ''}${+m[2]} ${m[3].slice(0, 3)} ${m[4]}`, key: `${m[4]}-${String(mi + 1).padStart(2, '0')}-${m[2].padStart(2, '0')}` };
+}
+// Day-specific changes in a bench's notes: not sitting, sitting differently, today's order of calling.
+const IMPORTANT_NOTE = /\bNOT SITTING\b|\b(WILL|SHALL) NOT SIT\b|\bDISCHARGED\b|\bNOTE\s*:?\s*TODAY\b|\bON\s+\d{1,2}(ST|ND|RD|TH)?\.?\s+[A-Z]+,?\s+\d{4}\s*(\([A-Z]+\))?\s*[-–]?\s*(SHALL|WILL)\b|\bIN PLACE OF\b|\bINSTEAD OF\b/i;
+function noteSnippet(text) {
+  const i = text ? text.search(IMPORTANT_NOTE) : -1;
+  if (i < 0) return '';
+  const start = Math.max(text.lastIndexOf('(', i) > i - 3 ? text.lastIndexOf('(', i) : i, 0);
+  const range = text.slice(i, i + 80).match(/^.*?\bTO\s+\d{1,2}\.\d{1,2}\.\d{2,4}/);
+  let end = range ? i + range[0].length - 1 : text.indexOf('. ', i + 10);
+  if (end < 0 || end - start > 220) end = Math.min(text.length, start + 220);
+  return text.slice(start, end + 1).trim().replace(/^\(|\)$/g, '');
+}
+
+function load() {
+  try { const v = JSON.parse(localStorage.getItem('clf.mycases') || 'null'); if (Array.isArray(v)) return v; } catch {}
+  return [];
+}
+function save() { try { localStorage.setItem('clf.mycases', JSON.stringify(cases)); } catch {} }
+
+// Store a case in one standard form so the same case is never added twice.
+const tidy = s => { const n = normaliseCase(s); return n ? n.key : s.trim().replace(/\s+/g, ' ').toUpperCase(); };
+
+function addCases(text) {
+  // Split commas only when every piece is a case of its own ("WPA/1/2025, WPA/2/2025"), not "MAT/812/2026, CAN No. 1 of 2026".
+  const parts = text.split(/[\n;]+/).flatMap(line => {
+    const bits = line.split(',').map(s => s.trim()).filter(Boolean);
+    return bits.length > 1 && bits.every(b => { const n = parseOne(b); return n && n.type !== 'CAN'; }) ? bits : [line.trim()];
+  }).filter(s => s.length >= 3);
+  for (const p of parts) { const t = tidy(p); if (!cases.includes(t)) cases.push(t); }
+  save(); drawCases(); refresh();
+}
+
+function drawCases() {
+  $('count').textContent = cases.length ? `${cases.length} saved` : '';
+  $('mycases').innerHTML = cases.map((c, i) => `<li>${esc(c)}<button type="button" data-del="${i}" aria-label="Remove ${esc(c)}">×</button></li>`).join('');
+  $('clearAll').hidden = cases.length < 3;
+  $('step1').classList.toggle('done', cases.length > 0);
+}
+
+const isWarning = e => /WARNING/i.test(e.list || '');
+function judges(e) {
+  return (e.judges || []).map(s => s.replace(/^THE\s+/i, '').replace(/HON['’]?BLE\s+(DR\.\s+)?JUSTICE\s+/i, 'Justice ').replace(/HON['’]?BLE\s+/i, '')
+    .replace(/\b([A-Z])([A-Z']+)/g, (m, a, b) => a + b.toLowerCase())).join(' & ');
+}
+const courtNo = c => parseInt(c, 10) || 9999;
+
+// Sort every answer into: listed, needs a look, not listed.
+function group(res) {
+  const listed = [], check = [], missing = [], names = [];
+  for (const r of res) {
+    if (r.kind === 'invalid') continue;
+    const label = r.kind === 'case' ? r.key : r.query.toUpperCase();
+    const real = r.hits.filter(e => !isWarning(e));
+    if (r.kind === 'name') { if (r.hits.length) names.push({ label, hits: [...r.hits].sort((a, b) => courtNo(a.court) - courtNo(b.court) || (parseInt(a.serial, 10) || 0) - (parseInt(b.serial, 10) || 0)) }); else missing.push(label); continue; }
+    if (real.length) { for (const e of real) listed.push({ label, e, multi: real.length > 1 }); continue; }
+    if (r.hits.length) { check.push({ label, why: 'On the warning list. No court or date is fixed yet.' }); continue; }
+    if (r.linked && r.linked.length) { for (const e of r.linked) listed.push({ label, e, connected: true }); continue; }
+    if (r.near && r.near.length) { check.push({ label, why: `Not found as typed. Did you mean ${r.near.map(e => e.caseNo).join(' or ')}? That one is in Court ${r.near[0].court}, Item ${r.near[0].serial}.` }); continue; }
+    if (r.raw && r.raw.length) { check.push({ label, why: `Mentioned in ${r.raw.slice(0, 4).join(', ')}, but not as a listed case. Open the PDF to check.` }); continue; }
+    missing.push(label);
+  }
+  listed.sort((a, b) => (a.e.dateKey || '').localeCompare(b.e.dateKey || '') || courtNo(a.e.court) - courtNo(b.e.court) || (parseInt(a.e.serial, 10) || 0) - (parseInt(b.e.serial, 10) || 0));
+  return { listed, check, missing, names };
+}
+
+function rowHTML({ label, e, multi, connected }) {
+  const caseLine = esc(label);
+  const flags = [
+    connected && `Listed together with ${esc(e.caseNo)}`,
+    e.rel === 'with' && 'Tagged with the item above it',
+    e.rel === 'in' && 'Listed as the main case under this item',
+    multi && 'This case appears more than once. Check each entry.',
+    e.kind === 'monthly' && 'Monthly list: this is not a fixed hearing date. Watch the daily list.',
+  ].filter(Boolean);
+  const adv = [e.advocate, e.advocate2].filter(Boolean).join('; ');
+  const important = noteSnippet(e.benchNotes);
+  const tags = [
+    e.src && `<span class="tag${e.kind === 'supplementary' ? ' supp' : ''}">${esc(e.src)}</span>`,
+    isNew(label, e) && '<span class="tag new">New since last check</span>',
+  ].filter(Boolean).join('');
+  return `<details class="row">
+    <summary>
+      <span class="case">${caseLine}</span>
+      <span class="chev"><span class="more">Details ▾</span><span class="less">Hide ▴</span></span>
+      <span class="place">Court <em>${esc(e.court)}</em> · Item <em>${esc(e.serial)}</em>${e.time ? ` · <span class="nw">${esc(e.time)}</span>` : ''}</span>
+      <span class="bench">${esc(judges(e))}</span>
+      ${tags ? `<span class="tags">${tags}</span>` : ''}
+      ${important ? `<span class="courtnote"><b>Court note:</b> ${esc(important.charAt(0) + important.slice(1).toLowerCase())}</span>` : ''}
+    </summary>
+    <dl class="details">
+      ${flags.map(f => `<span class="flag">${f}</span>`).join('')}
+      ${e.vc ? `<dt>VC link</dt><dd><a href="${esc(e.vc)}" target="_blank" rel="noopener">Join the court's video hearing</a></dd>` : ''}
+      ${e.benchNotes ? `<dt>Court notes</dt><dd>${esc(e.benchNotes.length > 700 ? e.benchNotes.slice(0, 700) + '…' : e.benchNotes)}</dd>` : ''}
+      <dt>Parties</dt><dd>${esc(e.petitioner)}${e.respondent ? ' <i>vs</i> ' + esc(e.respondent) : ''}</dd>
+      ${e.section ? `<dt>Listed under</dt><dd>${esc(e.section)}</dd>` : ''}
+      ${e.benchType ? `<dt>Bench</dt><dd>${esc(e.benchType)}</dd>` : ''}
+      ${adv ? `<dt>Advocate</dt><dd>${esc(adv)}</dd>` : ''}
+      ${e.ia ? `<dt>IA</dt><dd>${esc(e.ia)}</dd>` : ''}
+      ${e.remarks ? `<dt>Note</dt><dd>${esc(e.remarks)}</dd>` : ''}
+      <dt>PDF page</dt><dd>${e.page}</dd>
+    </dl>
+  </details>`;
+}
+
+function render() {
+  const box = $('results');
+  if (!showingExample && !cases.length) { box.innerHTML = '<p class="small">Add your cases above to see if they are listed.</p>'; return; }
+  if (!showingExample && !index) { box.innerHTML = '<p class="small">Now upload the cause list PDF.</p>'; return; }
+  const { listed, check, missing, names } = group(results);
+  const n = new Set(listed.map(x => x.label)).size;
+  const total = n + check.length + missing.filter(m => normaliseCase(m)).length;
+  let html = '';
+  if (showingExample) html += '<div class="example">This is an example. Add your cases and upload your list to see your own results.</div>';
+  if (total) html += n ? `<p class="answer">${n} of your ${total} cases ${n === 1 ? 'is' : 'are'} listed</p>` : '<p class="answer none">None of your cases are listed</p>';
+  if (lists.length) html += `<p class="small">Checked ${lists.map(l => `${esc(l.label)} (${fmt(l.pages)} pages)`).join(', ')}</p>`;
+  if (listed.length) {
+    const dates = [...new Set(listed.map(x => x.e.dateKey))];
+    html += dates.map(d => {
+      const rows = listed.filter(x => x.e.dateKey === d);
+      return (dates.length > 1 ? `<h3 class="date-head">${esc(rows[0].e.dateShort || 'Date not printed')}</h3>` : '') + `<div class="list">${rows.map(rowHTML).join('')}</div>`;
+    }).join('');
+  }
+  if (check.length) html += `<h3 class="group-title"><span class="dot warn"></span>Please check (${check.length})</h3><div class="list">${check.map(c => `<div class="check"><span class="case">${esc(c.label)}</span><p>${esc(c.why)}</p></div>`).join('')}</div>`;
+  if (names.length) html += `<h3 class="group-title"><span class="dot ok"></span>By name</h3><div class="list">${names.map(nm => `<details class="row"><summary><span class="case">${esc(nm.label)}</span><span class="chev"><span class="more">Show ▾</span><span class="less">Hide ▴</span></span><span class="place">${fmt(nm.hits.length)} matter${nm.hits.length > 1 ? 's' : ''} listed</span></summary><ul class="byname">${nm.hits.map(e => `<li><span class="case">${esc(e.caseNo)}</span><span>${isWarning(e) ? 'Warning list' : `Court ${esc(e.court)} · Item ${esc(e.serial)}`}</span></li>`).join('')}</ul></details>`).join('')}</div>`;
+  if (missing.length) html += `<h3 class="group-title"><span class="dot no"></span>Not in ${lists.length > 1 ? 'these lists' : 'this list'} (${missing.length})</h3><ul class="notlisted">${missing.map(m => `<li>${esc(m)}</li>`).join('')}</ul>`;
+  html += `<div class="share"><button class="btn quiet" id="copy" type="button">Copy for WhatsApp</button><span class="small" id="copyNote"></span></div>`;
+  box.innerHTML = html;
+  if (!showingExample && index) rememberSeen(listed);
+}
+
+function refresh() {
+  if (index) { results = search(index, cases); showingExample = false; }
+  else showingExample = !cases.length;
+  render();
+}
+
+function messageText() {
+  const { listed, check, missing, names } = group(results);
+  const out = [`Cause list check${lists.length ? ' – ' + lists.map(l => l.label).join(', ') : ''}${showingExample ? ' (example)' : ''}`];
+  let lastDate = null, n = 0;
+  for (const x of listed) {
+    if (x.e.dateKey !== lastDate) { lastDate = x.e.dateKey; out.push('', `LISTED ${(x.e.dateShort || '').toUpperCase()}:`.replace(/ :$/, ':')); }
+    const extra = [x.e.kind === 'supplementary' && 'supplementary', isNew(x.label, x.e) && 'new', x.e.kind === 'monthly' && 'monthly list', noteSnippet(x.e.benchNotes) && 'court note: ' + noteSnippet(x.e.benchNotes).toLowerCase()].filter(Boolean);
+    out.push(`${++n}. ${x.label} – Court ${x.e.court}, Item ${x.e.serial}${x.e.time ? ', ' + x.e.time : ''}${judges(x.e) ? ' (' + judges(x.e) + ')' : ''}${extra.length ? ' [' + extra.join(', ') + ']' : ''}`);
+  }
+  if (check.length) { out.push('', 'PLEASE CHECK:'); check.forEach(c => out.push(`• ${c.label} – ${c.why}`)); }
+  for (const nm of names) { out.push('', `${nm.label} (${nm.hits.length}):`); nm.hits.forEach(e => out.push(`• ${e.caseNo} – ${isWarning(e) ? 'Warning list' : `Court ${e.court}, Item ${e.serial}`}`)); }
+  if (missing.length) out.push('', 'NOT LISTED: ' + missing.join(', '));
+  return out.join('\n');
+}
+
+// Decide once, before pdf.js starts: a background worker if this page allows one, else read on the page.
+let engineReady = null;
+function prepareEngine() {
+  return engineReady || (engineReady = (async () => {
+    const src = URL.createObjectURL(new Blob([`try{importScripts("${WORKER}");postMessage(true)}catch(e){postMessage(false)}`], { type: 'text/javascript' }));
+    const ok = await new Promise(resolve => {
+      let w;
+      try { w = new Worker(src); } catch { return resolve(false); }
+      const t = setTimeout(() => { w.terminate(); resolve(false); }, 8000);
+      w.onmessage = e => { clearTimeout(t); w.terminate(); resolve(e.data !== false); };
+      w.onerror = () => { clearTimeout(t); w.terminate(); resolve(false); };
+    });
+    if (ok) {
+      pdfjsLib.GlobalWorkerOptions.workerSrc = URL.createObjectURL(new Blob([`importScripts("${WORKER}");`], { type: 'text/javascript' }));
+      return 'worker';
+    }
+    await new Promise((resolve, reject) => { const s = document.createElement('script'); s.src = WORKER; s.onload = resolve; s.onerror = () => reject(new Error('the PDF reader could not load')); document.head.appendChild(s); });
+    pdfjsLib.GlobalWorkerOptions.workerSrc = WORKER;
+    return 'page';
+  })());
+}
+
+// Which kind of list a file is, from its bench headers (not the warning list at the end).
+function listKind(entries) {
+  const counts = {};
+  for (const e of entries) { const k = /SUPPLEMENTARY/i.test(e.list) ? 'supplementary' : /MONTHLY/i.test(e.list) ? 'monthly' : /DAILY/i.test(e.list) ? 'daily' : ''; if (k) counts[k] = (counts[k] || 0) + 1; }
+  return Object.keys(counts).sort((a, b) => counts[b] - counts[a])[0] || 'other';
+}
+const KIND_NAME = { daily: 'Daily', supplementary: 'Supplementary', monthly: 'Monthly', other: 'List' };
+
+function rebuildIndex() {
+  if (!lists.length) { index = null; return; }
+  const all = [], raw = new Map();
+  for (const l of lists) {
+    for (const e of l.entries) all.push(e);
+    for (const [k, pages] of l.raw) { const set = raw.get(k) || raw.set(k, new Set()).get(k); for (const p of pages) set.add(`${l.label} p. ${p}`); }
+  }
+  index = buildIndex(all, raw);
+}
+
+function drawLists() {
+  $('lists').innerHTML = lists.map(l => `<li><div class="what"><b>${esc(l.label)}</b><span>${esc(l.name)} · ${fmt(l.entries.length)} cases read</span></div><button type="button" data-drop="${l.id}" aria-label="Remove ${esc(l.label)}">×</button></li>`).join('');
+  $('dropTitle').textContent = lists.length ? 'Add another list' : 'Upload cause list PDF';
+  $('dropHint').textContent = lists.length ? 'For example the supplementary list, when it comes out.' : 'Daily, supplementary or monthly list. You can choose several at once.';
+  $('suppTip').hidden = !lists.some(l => l.kind === 'daily') || lists.some(l => l.kind === 'supplementary');
+  $('step2').classList.toggle('done', lists.length > 0);
+}
+
+function showError(msg) { $('uploadError').textContent = msg; $('uploadError').hidden = !msg; }
+
+async function readList(file) {
+  await prepareEngine();
+  const doc = await pdfjsLib.getDocument({ data: new Uint8Array(await file.arrayBuffer()), isEvalSupported: false }).promise;
+  const parser = createParser();
+  for (let p = 1; p <= doc.numPages; p++) {
+    const page = await doc.getPage(p);
+    parser.addPage((await page.getTextContent()).items, p);
+    page.cleanup();
+    if (p % 25 === 0 || p === doc.numPages) {
+      $('barFill').style.width = (100 * p / doc.numPages) + '%';
+      await new Promise(r => { const c = new MessageChannel(); c.port1.onmessage = r; c.port2.postMessage(0); });
+    }
+  }
+  return { entries: parser.finish(), raw: parser.rawCases(), pages: doc.numPages };
+}
+
+async function loadFiles(files) {
+  files = [...files];
+  if (!files.length) return;
+  showError('');
+  const problems = [];
+  let added = false;
+  $('progress').hidden = false;
+  for (const file of files) {
+    if (!/\.pdf$/i.test(file.name) && file.type !== 'application/pdf') { problems.push(`${file.name} is not a PDF.`); continue; }
+    $('progressText').textContent = `Reading ${file.name}…`;
+    $('barFill').style.width = '0';
+    try {
+      const { entries, raw, pages } = await readList(file);
+      if (!entries.length) { problems.push(`No cases could be read from ${file.name}. It may be a scanned copy, which is not supported yet.`); continue; }
+      const kind = listKind(entries);
+      const d = parseDate((entries.find(e => e.date) || {}).date);
+      const label = `${KIND_NAME[kind]} · ${d.short}`;
+      for (const e of entries) {
+        const ed = e.date ? parseDate(e.date) : d;
+        e.src = label; e.kind = kind; e.dateKey = kind === 'monthly' ? `~monthly ${ed.key}` : ed.key;   // '~' sorts monthly after dated lists
+        e.dateShort = kind === 'monthly' ? `Monthly list from ${ed.short}` : ed.short;
+      }
+      lists = lists.filter(l => !(l.label === label && l.pages === pages));   // same list uploaded twice
+      lists.push({ id: nextListId++, name: file.name, label, kind, entries, raw, pages });
+      added = true;
+    } catch (err) {
+      problems.push(`Could not read ${file.name}. Check that it opens normally and is not password protected.`);
+    }
+  }
+  $('progress').hidden = true;
+  showError(problems.join(' '));
+  if (!added) return;
+  drawLists();
+  rebuildIndex();
+  refresh();
+  $('results').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+}
+
+function bindPicker() {
+  $('file').addEventListener('change', e => { loadFiles(e.target.files); e.target.value = ''; });
+  const d = $('drop');
+  ['dragenter', 'dragover'].forEach(t => d.addEventListener(t, e => { e.preventDefault(); d.classList.add('over'); }));
+  ['dragleave', 'drop'].forEach(t => d.addEventListener(t, e => { e.preventDefault(); d.classList.remove('over'); }));
+  d.addEventListener('drop', e => loadFiles(e.dataTransfer.files));
+  $('lists').addEventListener('click', e => {
+    const b = e.target.closest('[data-drop]'); if (!b) return;
+    lists = lists.filter(l => l.id !== +b.dataset.drop);
+    drawLists(); rebuildIndex();
+    if (!index) { results = EXAMPLE; showingExample = !cases.length; render(); } else refresh();
+  });
+}
+
+$('addForm').addEventListener('submit', e => { e.preventDefault(); const v = $('newCase').value; if (v.trim()) { addCases(v); $('newCase').value = ''; } $('newCase').focus(); });
+$('newCase').addEventListener('paste', e => {
+  const t = e.clipboardData && e.clipboardData.getData('text');
+  if (t && /[\n,;]/.test(t.trim())) { e.preventDefault(); addCases(t); }
+});
+$('mycases').addEventListener('click', e => {
+  const b = e.target.closest('[data-del]'); if (!b) return;
+  cases.splice(+b.dataset.del, 1); save(); drawCases(); refresh();
+});
+$('clearAll').addEventListener('click', () => {
+  const b = $('clearAll');
+  if (b.dataset.sure) { cases = []; save(); drawCases(); refresh(); delete b.dataset.sure; b.textContent = 'Remove all'; }
+  else { b.dataset.sure = '1'; b.textContent = 'Tap again to remove all'; setTimeout(() => { delete b.dataset.sure; b.textContent = 'Remove all'; }, 3000); }
+});
+$('results').addEventListener('click', async e => {
+  if (!e.target.closest('#copy')) return;
+  const text = messageText();
+  try { await navigator.clipboard.writeText(text); $('copyNote').textContent = 'Copied. Paste it in WhatsApp.'; }
+  catch { $('copyNote').textContent = 'Copy did not work here. Select the text below.'; $('results').insertAdjacentHTML('beforeend', `<textarea readonly style="width:100%;min-height:160px">${esc(text)}</textarea>`); }
+});
+
+bindPicker();
+prepareEngine().catch(() => { engineReady = null; });
+drawCases();
+showingExample = !cases.length;
+render();
+</script>

@@ -1,0 +1,14 @@
+{
+  "name": "causelistfinder",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Find your cases in Calcutta High Court cause lists (daily, supplementary, monthly).",
+  "scripts": {
+    "build": "node tools/build.js",
+    "test": "node --test tests/*.test.js",
+    "parse": "node tools/parse.js"
+  },
+  "devDependencies": {
+    "pdfjs-dist": "3.11.174"
+  }
+}
