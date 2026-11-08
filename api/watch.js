@@ -9,7 +9,8 @@ module.exports = async (req, res) => {
   if (!secret) return res.status(503).json({ error: 'Set CRON_SECRET in the Vercel project settings first.' });
   if (req.headers.authorization !== `Bearer ${secret}`) return res.status(401).json({ error: 'Wrong or missing Authorization header.' });
   try {
-    res.status(200).json(await runOnce({ forceArchive: req.query?.archive === '1' }));
+    // ?archive=1 also probes the archive now; ?reset=1 forgets which lists were seen (the log is kept) and reads them again.
+    res.status(200).json(await runOnce({ forceArchive: req.query?.archive === '1', reset: req.query?.reset === '1' }));
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

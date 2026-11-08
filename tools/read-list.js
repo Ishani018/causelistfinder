@@ -4,6 +4,8 @@ const fs = require('fs');
 globalThis.DOMMatrix ??= class DOMMatrix {};
 globalThis.Path2D ??= class Path2D {};
 const pdfjs = require('pdfjs-dist/legacy/build/pdf.js');
+// Parse on this thread, with the worker code loaded by a plain require so bundlers (Vercel) include it.
+globalThis.pdfjsWorker ??= require('pdfjs-dist/legacy/build/pdf.worker.js');
 const { createParser, keyOf } = require('../src/parser.js');
 
 async function readList(file) {

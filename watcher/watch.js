@@ -15,6 +15,7 @@ const { readList, unreadCaseNumbers } = require('../tools/read-list.js');
 const ARCHIVE_EVERY_MIN = 30;
 const KEEP_PDFS_DAYS = 30;
 const HEARTBEAT_AT = { h: 22, m: 30 };   // IST: by now tomorrow's Appellate Side daily list should be up
+const MAX_TRIES = 3;                     // a list that fails to download or read is retried on later checks
 
 // Current IST wall-clock time as a Date whose UTC fields read as IST.
 const istNow = () => new Date(Date.now() + 5.5 * 3600e3);
@@ -66,7 +67,7 @@ async function checkNotices(state) {
   const fresh = [];
   for (let page = 1; page <= 3; page++) {
     const items = await site.fetchNotices(page);
-    const unseen = items.filter(n => !state.notices[n.id]);
+    const unseen = items.filter(n => !state.notices[n.id] || state.notices[n.id].retry);
     fresh.push(...unseen);
     // Keep paging only when a whole page is new (many uploads since the last check) and we have history.
     if (unseen.length < items.length || !Object.keys(state.notices).length) break;
@@ -88,7 +89,7 @@ async function checkArchive(state, force) {
     const info = await site.probeArchive(url);
     if (!info) continue;
     const seen = state.archive[url];
-    if (seen && seen.size === info.size) continue;
+    if (seen && seen.size === info.size && !seen.retry) continue;
     fresh.push({ source: 'archive', key: url.split('/old_cause_lists/')[1], url, title: `${p.type} list ${isoDay(p.d)} (${p.side})`,
       uploadedAt: info.uploadedAt, type: p.type, side: p.side, hearingDate: isoDay(p.d), court: null, vacation: false,
       replaced: !!seen, size: info.size });
@@ -124,9 +125,12 @@ function prunePdfs(store) {
 }
 
 // One check. Returns what it found, for api/watch.js and the console.
-async function runOnce({ forceArchive = false, store = pickStore() } = {}) {
+async function runOnce({ forceArchive = false, reset = false, store = pickStore() } = {}) {
   if (!await store.lock()) return { skipped: 'another check is still running' };
-  try { return await check(store, forceArchive); } finally { await store.unlock(); }
+  try {
+    if (reset) await store.saveState({ ...(await store.loadState()), notices: {}, archive: {}, lastArchiveCheck: null, lastRun: null });
+    return await check(store, forceArchive || reset);
+  } finally { await store.unlock(); }
 }
 
 async function check(store, forceArchive) {
@@ -157,6 +161,10 @@ async function check(store, forceArchive) {
     summary.found.push({ title: item.title, cases: rec.result?.cases ?? null, problem: rec.problem || null });
     if (rec.problem) { summary.problems.push(`${item.title}: ${rec.problem}`); await tellOperator(`${item.title}: ${rec.problem} (${item.url})`); }
     const keep = { type: item.type, side: item.side, hearingDate: item.hearingDate, uploadedAt: item.uploadedAt };
+    const prev = item.source === 'notice' ? state.notices[item.key] : state.archive[item.url];
+    const tries = (prev?.tries || 0) + 1;
+    // Failed to fetch or read: try again on the next checks, then give up (the problem is already logged).
+    if (/^could not read/.test(rec.problem || '') && tries < MAX_TRIES) Object.assign(keep, { retry: true, tries });
     if (item.source === 'notice') state.notices[item.key] = keep;
     else state.archive[item.url] = { ...keep, size: item.size };
   }
