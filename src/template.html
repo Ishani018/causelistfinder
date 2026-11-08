@@ -737,7 +737,7 @@ async function checkDay(date) {
   if (!cases.length) { dayNote('Add your case numbers first (My cases), then pick a day.'); $('newCase').focus(); return; }
   checking = true; dayNote('');
   $('progress').hidden = false; $('barFill').style.width = '35%';
-  $('progressText').textContent = `Fetching the court's lists for ${dayLabel(date)}… (about 10 seconds the first time)`;
+  $('progressText').textContent = `Fetching the court's lists for ${dayLabel(date)}… This can take 30–40 seconds; the full daily list is over 10,000 cases.`;
   try {
     const res = await fetch('/api/check', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ date, cases }) });
     const d = await res.json();
