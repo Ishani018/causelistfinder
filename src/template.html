@@ -1,161 +1,268 @@
 <title>Cause List Finder</title>
 <meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Find your cases in Calcutta High Court cause lists: court, item, time and court notes, from the PDF you already have.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
 <style>
-/* Layout: one narrow column, phone first. Step 1 my cases, step 2 upload, then the answer. */
+/* Layout: a court-diary workspace. Desktop: saved cases in a side column, the day's lists and the answer in the main column.
+   Phone: one column; upload first once cases are saved. The case you are looking for is marked like a highlighter on paper. */
 :root {
-  --bg: #F4F5F7;
+  --bg: #F3F4F1;
   --panel: #FFFFFF;
-  --ink: #18202E;
-  --muted: #5E6778;
-  --rule: #DDE1E8;
-  --tape: #A8232B;
-  --tape-soft: #F7E4E5;
-  --ok: #17663F; --ok-soft: #E2F2E8;
-  --warn: #8A5A00; --warn-soft: #FCF0D6;
-  --f-display: "Spectral", Georgia, serif;
-  --f-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
-  --f-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  --sunk: #F7F8F5;
+  --ink: #16181D;
+  --muted: #626773;
+  --faint: #8A8F99;
+  --rule: #E2E4DE;
+  --accent: #22318F;          /* fountain-pen ink: buttons and links */
+  --accent-ink: #FFFFFF;
+  --mark: #FFE45E;            /* highlighter */
+  --mark-ink: #2A2200;
+  --ok: #1D7A4C; --ok-soft: #E3F3EA;
+  --warn: #9A5800; --warn-soft: #FDF1DC;
+  --supp: #A1262E; --supp-soft: #FBE7E8;
+  --f-display: "Newsreader", "Iowan Old Style", Georgia, serif;
+  --f-body: "Public Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --radius: 12px;
+  --shadow: 0 1px 2px rgba(20, 22, 30, .05), 0 4px 16px rgba(20, 22, 30, .05);
 }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
-  --bg: #12151C; --panel: #1B2029; --ink: #E8EAF0; --muted: #9CA4B4; --rule: #2D3441;
-  --tape: #E8666D; --tape-soft: #3B2127; --ok: #73CF9C; --ok-soft: #17342A; --warn: #EBBC5E; --warn-soft: #3B2F15;
-  color-scheme: dark; } }
+  --bg: #0F1115; --panel: #171A20; --sunk: #13161B; --ink: #ECEDEF; --muted: #A2A7B1; --faint: #757B86; --rule: #272B33;
+  --accent: #9DADFF; --accent-ink: #0F1115; --mark: rgba(255, 226, 94, .2); --mark-ink: #FFE98C;
+  --ok: #74D29F; --ok-soft: #16302A; --warn: #F0BE62; --warn-soft: #362A13; --supp: #F2878D; --supp-soft: #3A1E22;
+  --shadow: none; color-scheme: dark; } }
 :root[data-theme="dark"] {
-  --bg: #12151C; --panel: #1B2029; --ink: #E8EAF0; --muted: #9CA4B4; --rule: #2D3441;
-  --tape: #E8666D; --tape-soft: #3B2127; --ok: #73CF9C; --ok-soft: #17342A; --warn: #EBBC5E; --warn-soft: #3B2F15;
-  color-scheme: dark; }
+  --bg: #0F1115; --panel: #171A20; --sunk: #13161B; --ink: #ECEDEF; --muted: #A2A7B1; --faint: #757B86; --rule: #272B33;
+  --accent: #9DADFF; --accent-ink: #0F1115; --mark: rgba(255, 226, 94, .2); --mark-ink: #FFE98C;
+  --ok: #74D29F; --ok-soft: #16302A; --warn: #F0BE62; --warn-soft: #362A13; --supp: #F2878D; --supp-soft: #3A1E22;
+  --shadow: none; color-scheme: dark; }
 
 * { box-sizing: border-box; }
-body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 16px; line-height: 1.5; }
-.wrap { max-width: 640px; margin: 0 auto; padding-block: 24px 64px;
-  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
-  display: flex; flex-direction: column; gap: 16px; }
-header { display: flex; flex-direction: column; gap: 2px; padding-bottom: 4px; }
-h1 { font: 700 30px/1.15 var(--f-display); margin: 0; }
-header p { margin: 0; color: var(--muted); }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--ink); font: 400 15px/1.5 var(--f-body); -webkit-font-smoothing: antialiased; }
+button, input, textarea { font: inherit; color: inherit; }
+a { color: var(--accent); }
+[hidden] { display: none !important; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+.mono { font-family: var(--f-mono); }
+.num { font-variant-numeric: tabular-nums; }
 
-.step { background: var(--panel); border: 1px solid var(--rule); border-radius: 10px; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
-.step-title { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 17px; margin: 0; }
-.num { width: 26px; height: 26px; border-radius: 50%; background: var(--tape); color: #fff; display: grid; place-items: center; font-size: 14px; flex: none; }
-.done .num { background: var(--ok); }
-.step-title .count { margin-left: auto; font-weight: 500; color: var(--muted); font-size: 14px; }
+/* Page frame */
+.top { border-bottom: 1px solid var(--rule); background: var(--panel); }
+.top-in, .wrap { max-width: 1180px; margin: 0 auto; padding-left: max(20px, env(safe-area-inset-left, 0px)); padding-right: max(20px, env(safe-area-inset-right, 0px)); }
+.top-in { display: flex; align-items: center; gap: 12px; padding-block: 14px; }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 700; letter-spacing: -.01em; }
+.logo { width: 28px; height: 28px; border-radius: 7px; background: var(--ink); position: relative; overflow: hidden; flex: none; }
+.logo::before, .logo::after { content: ""; position: absolute; left: 6px; right: 6px; height: 2px; background: var(--panel); border-radius: 1px; }
+.logo::before { top: 9px; box-shadow: 0 10px 0 var(--panel); }
+.logo::after { top: 13px; height: 5px; background: #FFE45E; left: 5px; right: 4px; border-radius: 2px; }
+.court { margin-left: auto; font-size: 13px; color: var(--muted); }
 
+.hero { padding-block: 34px 22px; }
+.hero h1 { font: 600 clamp(30px, 4.2vw, 44px)/1.08 var(--f-display); letter-spacing: -.015em; margin: 0 0 8px; text-wrap: balance; }
+.hero h1 mark { background: linear-gradient(transparent 12%, var(--mark) 12%, var(--mark) 88%, transparent 88%); color: inherit; padding: 0 .12em; border-radius: 3px; }
+.hero p { margin: 0; color: var(--muted); max-width: 60ch; font-size: 16px; }
+body.has-cases .hero { padding-block: 22px 16px; }
+body.has-cases .hero h1 { font-size: clamp(24px, 3vw, 30px); margin: 0; }
+body.has-cases .hero p { display: none; }
+
+.wrap { padding-block: 0 72px; }
+.grid { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 24px; align-items: start; }
+.side { position: sticky; top: 16px; display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.main { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+@media (max-width: 900px) {
+  .grid { grid-template-columns: minmax(0, 1fr); }
+  .side { position: static; }
+  body.has-cases .side { order: 2; }
+}
+
+.panel { background: var(--panel); border: 1px solid var(--rule); border-radius: var(--radius); box-shadow: var(--shadow); }
+.panel-head { display: flex; align-items: baseline; gap: 8px; padding: 16px 18px 0; }
+.panel-head h2 { margin: 0; font-size: 15px; font-weight: 700; }
+.count { margin-left: auto; font-size: 13px; color: var(--muted); }
+.panel-body { padding: 14px 18px 18px; display: flex; flex-direction: column; gap: 12px; }
+.hint { margin: 0; font-size: 13px; color: var(--muted); }
+
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: 1px solid var(--accent); background: var(--accent); color: var(--accent-ink);
+  font-weight: 600; font-size: 14px; border-radius: 9px; padding: 10px 16px; min-height: 42px; cursor: pointer; white-space: nowrap; }
+.btn:hover { filter: brightness(1.08); }
+.btn.ghost { background: transparent; color: var(--accent); border-color: var(--rule); }
+.btn.ghost:hover { border-color: var(--accent); filter: none; }
+.linkbtn { background: none; border: 0; padding: 0; color: var(--muted); font-size: 13px; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; align-self: flex-start; }
+.linkbtn:hover { color: var(--supp); }
+
+/* My cases */
 .add { display: flex; gap: 8px; }
-.add input { flex: 1; min-width: 0; font: 500 16px var(--f-mono); padding: 12px; border: 1px solid var(--rule); border-radius: 8px; background: var(--bg); color: var(--ink); }
-.btn { font: 600 16px/1 var(--f-body); border-radius: 8px; padding: 12px 18px; cursor: pointer; border: 1px solid var(--tape); background: var(--tape); color: #fff; min-height: 46px; }
-.btn.quiet { background: transparent; color: var(--tape); }
-.btn:focus-visible, input:focus-visible, .upload:focus-within, .link:focus-visible, summary:focus-visible { outline: 2px solid var(--tape); outline-offset: 2px; }
-.small { font-size: 14px; color: var(--muted); margin: 0; }
+.field { flex: 1; min-width: 0; font: 500 15px var(--f-mono); padding: 10px 12px; min-height: 42px; border: 1px solid var(--rule); border-radius: 9px; background: var(--sunk); }
+.field::placeholder { color: var(--faint); font-family: var(--f-body); font-weight: 400; }
+.field:focus { outline: none; border-color: var(--accent); background: var(--panel); }
+.filter { font-family: var(--f-body); font-size: 14px; min-height: 36px; padding: 7px 10px; }
+.caselist { list-style: none; margin: 0; padding: 0; max-height: 52vh; overflow-y: auto; border-top: 1px solid var(--rule); }
+.caselist li { display: flex; align-items: center; gap: 8px; padding: 7px 2px 7px 0; border-bottom: 1px solid var(--rule); font: 500 14px var(--f-mono); }
+.caselist li .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--rule); flex: none; }
+.caselist li.on .dot { background: var(--ok); }
+.caselist li.chk .dot { background: var(--warn); }
+.caselist li span.c { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.caselist li button { border: 0; background: none; color: var(--faint); font-size: 18px; line-height: 1; padding: 4px 8px; border-radius: 6px; cursor: pointer; opacity: .55; }
+.caselist li:hover button, .caselist li button:focus-visible { opacity: 1; }
+.caselist li button:hover { color: var(--supp); background: var(--supp-soft); }
+.empty-cases { font-size: 14px; color: var(--muted); background: var(--sunk); border: 1px dashed var(--rule); border-radius: 9px; padding: 14px; }
 
-.mycases { display: flex; flex-wrap: wrap; gap: 8px; list-style: none; margin: 0; padding: 0; }
-.mycases li { display: flex; align-items: center; gap: 4px; background: var(--bg); border: 1px solid var(--rule); border-radius: 6px; padding: 4px 4px 4px 10px; font: 500 14px var(--f-mono); }
-.mycases button { border: 0; background: none; color: var(--muted); font-size: 18px; line-height: 1; padding: 4px 6px; cursor: pointer; border-radius: 4px; }
-.mycases button:hover { color: var(--tape); }
-.link { background: none; border: 0; padding: 0; color: var(--tape); font: 500 14px var(--f-body); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; align-self: flex-start; }
+/* Upload */
+.drop { position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 16px; padding: 22px; border: 1.5px dashed color-mix(in srgb, var(--accent) 35%, var(--rule)); border-radius: var(--radius); background: var(--panel); cursor: pointer; transition: border-color .15s, background .15s; }
+.drop:hover, .drop.over { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 5%, var(--panel)); }
+.drop input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.drop-icon { width: 46px; height: 46px; border-radius: 11px; background: color-mix(in srgb, var(--accent) 12%, var(--panel)); display: grid; place-items: center; color: var(--accent); }
+.drop-text b { display: block; font-size: 16px; }
+.drop-text span { font-size: 14px; color: var(--muted); }
+.drop .btn { pointer-events: none; }
+.drop.compact { padding: 14px 16px; }
+.drop.compact .drop-icon { width: 36px; height: 36px; border-radius: 9px; }
+@media (max-width: 560px) { .drop { grid-template-columns: auto minmax(0, 1fr); } .drop .btn { display: none; } }
 
-.upload { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; border: 2px dashed var(--rule); border-radius: 10px; padding: 22px 16px; cursor: pointer; }
-.upload:hover, .upload.over { border-color: var(--tape); background: var(--tape-soft); }
-.upload input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
-.upload strong { font-size: 17px; color: var(--tape); }
-.loaded { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-.loaded .what { flex: 1; min-width: 0; }
-.loaded .what b { display: block; }
-.bar { height: 8px; background: var(--rule); border-radius: 4px; overflow: hidden; }
-.bar i { display: block; height: 100%; width: 0; background: var(--tape); }
-.error { color: var(--tape); font-size: 15px; margin: 0; }
+.lists { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.lists li { display: flex; align-items: center; gap: 10px; background: var(--panel); border: 1px solid var(--rule); border-radius: 10px; padding: 8px 6px 8px 12px; min-width: 0; }
+.lists li .k { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; padding: 3px 7px; border-radius: 5px; background: var(--sunk); color: var(--muted); }
+.lists li .k.supplementary { background: var(--supp-soft); color: var(--supp); }
+.lists li .k.daily { background: color-mix(in srgb, var(--accent) 12%, var(--panel)); color: var(--accent); }
+.lists li b { font-weight: 600; font-size: 14px; }
+.lists li small { color: var(--muted); font-size: 12px; }
+.lists li button { border: 0; background: none; color: var(--faint); font-size: 18px; line-height: 1; padding: 4px 8px; border-radius: 6px; cursor: pointer; }
+.lists li button:hover { color: var(--supp); background: var(--supp-soft); }
+.progress { display: flex; flex-direction: column; gap: 8px; padding: 14px 16px; }
+.bar { height: 6px; background: var(--rule); border-radius: 3px; overflow: hidden; }
+.bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .12s linear; }
+.note-line { margin: 0; font-size: 14px; border-radius: 10px; padding: 10px 14px; }
+.note-line.warn { background: var(--warn-soft); color: var(--warn); }
+.note-line.err { background: var(--supp-soft); color: var(--supp); }
+.note-line.example { background: var(--sunk); color: var(--muted); border: 1px dashed var(--rule); }
 
-.example { background: var(--warn-soft); color: var(--warn); border-radius: 8px; padding: 10px 12px; font-size: 14px; font-weight: 500; }
-.answer { font: 700 26px/1.2 var(--f-display); margin: 8px 0 0; }
-.answer.none { color: var(--muted); }
-.group-title { font-weight: 600; font-size: 15px; margin: 8px 0 0; display: flex; align-items: center; gap: 8px; }
-.dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
-.dot.ok { background: var(--ok); } .dot.warn { background: var(--warn); } .dot.no { background: var(--muted); }
+/* Answer */
+.summary { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 20px; padding: 16px 18px; }
+.stats { display: flex; gap: 8px; flex-wrap: wrap; }
+.stat { display: flex; align-items: baseline; gap: 8px; padding: 8px 14px; border-radius: 10px; background: var(--sunk); }
+.stat b { font: 600 26px/1 var(--f-display); font-variant-numeric: lining-nums tabular-nums; }
+.stat span { font-size: 13px; color: var(--muted); font-weight: 500; }
+.stat.ok b { color: var(--ok); } .stat.warn b { color: var(--warn); }
+.summary .meta { flex: 1 1 220px; font-size: 13px; color: var(--muted); min-width: 0; }
+.summary .meta b { color: var(--ink); font-weight: 600; }
+.summary .btn { margin-left: auto; }
 
-#results { display: flex; flex-direction: column; gap: 10px; }
-.list { display: flex; flex-direction: column; gap: 10px; }
-.row { background: var(--panel); border: 1px solid var(--rule); border-left: 4px solid var(--ok); border-radius: 10px; overflow: hidden; }
-.row summary { list-style: none; cursor: pointer; padding: 14px 16px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 12px; align-items: center; }
+.day { display: flex; flex-direction: column; }
+.day-head { display: flex; align-items: baseline; gap: 10px; padding: 14px 18px 10px; border-bottom: 1px solid var(--rule); }
+.day-head h3 { margin: 0; font: 600 19px var(--f-display); }
+.day-head span { font-size: 13px; color: var(--muted); }
+.row { border-bottom: 1px solid var(--rule); }
+.row:last-child { border-bottom: 0; }
+.row summary { list-style: none; cursor: pointer; display: grid; grid-template-columns: 72px 72px minmax(0, 1fr) auto 18px; gap: 16px; align-items: center; padding: 14px 18px; }
 .row summary::-webkit-details-marker { display: none; }
-.row .case { font: 600 15px var(--f-mono); overflow-wrap: anywhere; }
-.row .place { font-size: 18px; font-weight: 600; }
-.row .place .nw { white-space: nowrap; }
-.row .place em { font-style: normal; color: var(--tape); }
-.row .bench { font-size: 14px; color: var(--muted); grid-column: 1 / -1; }
-.row .chev { grid-row: 1; grid-column: 2; color: var(--muted); font-size: 14px; white-space: nowrap; }
-.row[open] .chev .more { display: none; }
-.row:not([open]) .chev .less { display: none; }
-.details { margin: 0; padding: 12px 16px 14px; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 14px; font-size: 14px; border-top: 1px solid var(--rule); }
+.row summary:hover { background: var(--sunk); }
+.slot { display: flex; flex-direction: column; gap: 1px; }
+.slot small { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--faint); }
+.slot b { font: 600 26px/1 var(--f-display); font-variant-numeric: lining-nums tabular-nums; }
+.what { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.case { font: 600 15px var(--f-mono); align-self: flex-start; background: linear-gradient(transparent 8%, var(--mark) 8%, var(--mark) 92%, transparent 92%); color: var(--mark-ink); padding: 0 .3em; border-radius: 3px; overflow-wrap: anywhere; }
+.who { font-size: 13px; color: var(--muted); }
+.tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.tag { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; padding: 3px 7px; border-radius: 5px; background: var(--sunk); color: var(--muted); }
+.tag.supp { background: var(--supp-soft); color: var(--supp); }
+.tag.new { background: var(--ok-soft); color: var(--ok); }
+.tag.note { background: var(--warn-soft); color: var(--warn); }
+.time { font-weight: 600; font-size: 14px; white-space: nowrap; text-align: right; }
+.chev { color: var(--faint); transition: transform .15s; }
+.row[open] .chev { transform: rotate(180deg); }
+.courtnote { grid-column: 3 / -1; font-size: 13px; background: var(--warn-soft); color: var(--warn); border-radius: 8px; padding: 7px 10px; margin-top: -4px; }
+.details { margin: 0; padding: 4px 18px 18px calc(18px + 72px + 72px + 32px); display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 6px 14px; font-size: 14px; }
 .details dt { color: var(--muted); }
 .details dd { margin: 0; overflow-wrap: anywhere; }
-.flag { font-size: 13px; color: var(--warn); font-weight: 600; grid-column: 1 / -1; }
+.details .flag { grid-column: 1 / -1; color: var(--warn); font-weight: 600; font-size: 13px; }
+@media (max-width: 700px) {
+  .row summary { grid-template-columns: 60px 60px minmax(0, 1fr) 18px; gap: 12px; padding: 14px 16px; }
+  .row .what { grid-column: 1 / 4; grid-row: 2; }
+  .time { grid-column: 3; grid-row: 1; text-align: left; align-self: end; }
+  .chev { grid-column: 4; grid-row: 1; }
+  .courtnote { grid-column: 1 / -1; margin-top: 0; }
+  .details { padding: 4px 16px 16px; grid-template-columns: minmax(0, 1fr); gap: 2px; }
+  .details dd { margin-bottom: 8px; }
+}
 
-.check { background: var(--panel); border: 1px solid var(--rule); border-left: 4px solid var(--warn); border-radius: 10px; padding: 12px 16px; display: flex; flex-direction: column; gap: 2px; }
-.check .case { font: 600 15px var(--f-mono); }
-.check p { margin: 0; font-size: 15px; }
-.notlisted { display: flex; flex-wrap: wrap; gap: 8px; list-style: none; margin: 0; padding: 0; }
-.notlisted li { font: 500 14px var(--f-mono); color: var(--muted); background: var(--panel); border: 1px solid var(--rule); border-radius: 6px; padding: 6px 10px; }
-.byname { list-style: none; margin: 0; padding: 4px 16px 12px; border-top: 1px solid var(--rule); max-height: 360px; overflow-y: auto; }
-.byname li { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; border-bottom: 1px solid var(--rule); font-size: 14px; }
-.byname li:last-child { border-bottom: 0; }
-.byname .case { font: 500 14px var(--f-mono); }
-.lists { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
-.lists li { display: flex; align-items: center; gap: 10px; background: var(--bg); border: 1px solid var(--rule); border-radius: 8px; padding: 10px 6px 10px 12px; }
-.lists .what { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-.lists .what b { font-weight: 600; }
-.lists .what span { font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
-.lists button { border: 0; background: none; color: var(--muted); font-size: 20px; line-height: 1; padding: 6px 10px; cursor: pointer; border-radius: 4px; }
-.lists button:hover { color: var(--tape); }
-.tip { margin: 0; font-size: 14px; background: var(--warn-soft); color: var(--warn); border-radius: 8px; padding: 10px 12px; }
-.tags { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
-.tag { font: 600 11px/1 var(--f-body); letter-spacing: .06em; text-transform: uppercase; padding: 4px 7px; border-radius: 4px; background: var(--bg); color: var(--muted); border: 1px solid var(--rule); }
-.tag.new { background: var(--ok-soft); color: var(--ok); border-color: transparent; }
-.tag.supp { background: var(--tape-soft); color: var(--tape); border-color: transparent; }
-.tag.note { background: var(--warn-soft); color: var(--warn); border-color: transparent; }
-.courtnote { grid-column: 1 / -1; font-size: 14px; background: var(--warn-soft); color: var(--warn); border-radius: 6px; padding: 8px 10px; margin-top: 6px; }
-.date-head { font: 600 13px/1 var(--f-body); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin: 10px 0 0; }
-.details a { color: var(--tape); }
-.share { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 6px; }
+.section-title { display: flex; align-items: center; gap: 8px; margin: 6px 0 0; font-size: 14px; font-weight: 700; }
+.section-title i { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+.checks { display: flex; flex-direction: column; }
+.checks div { padding: 12px 18px; border-bottom: 1px solid var(--rule); display: flex; flex-direction: column; gap: 2px; }
+.checks div:last-child { border-bottom: 0; }
+.checks .case { background: none; color: var(--ink); padding: 0; }
+.checks p { margin: 0; font-size: 14px; color: var(--muted); }
+.fold { padding: 0; }
+.fold > summary { list-style: none; cursor: pointer; padding: 14px 18px; display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 14px; }
+.fold > summary::-webkit-details-marker { display: none; }
+.fold > summary .chev { margin-left: auto; }
+.fold[open] > summary .chev { transform: rotate(180deg); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 18px 16px; margin: 0; list-style: none; }
+.chips li { font: 500 13px var(--f-mono); color: var(--muted); background: var(--sunk); border: 1px solid var(--rule); border-radius: 6px; padding: 4px 8px; }
+.byname { list-style: none; margin: 0; padding: 0 18px 12px; max-height: 360px; overflow-y: auto; }
+.byname li { display: flex; justify-content: space-between; gap: 12px; padding: 7px 0; border-top: 1px solid var(--rule); font-size: 14px; }
+.byname .mono { font-weight: 500; }
 
-footer { font-size: 13px; color: var(--muted); padding-top: 8px; }
+.copybox { width: 100%; min-height: 180px; font: 13px/1.5 var(--f-mono); padding: 12px; border-radius: 9px; border: 1px solid var(--rule); background: var(--sunk); }
+footer { margin-top: 28px; font-size: 13px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 6px 18px; }
+
+/* Drop anywhere */
+.dropzone-overlay { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; background: color-mix(in srgb, var(--bg) 82%, transparent); backdrop-filter: blur(2px); }
+.dropzone-overlay div { border: 2px dashed var(--accent); border-radius: 16px; padding: 36px 44px; background: var(--panel); font: 600 22px var(--f-display); color: var(--accent); }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
 
+<header class="top">
+  <div class="top-in">
+    <div class="brand"><span class="logo" aria-hidden="true"></span>Cause List Finder</div>
+    <span class="court">Calcutta High Court</span>
+  </div>
+</header>
+
 <div class="wrap">
-  <header>
-    <h1>Cause List Finder</h1>
-    <p>Find your cases in the Calcutta High Court cause list.</p>
-  </header>
-
-  <section class="step" id="step1">
-    <h2 class="step-title"><span class="num">1</span> My cases <span class="count" id="count"></span></h2>
-    <form class="add" id="addForm">
-      <input id="newCase" aria-label="Case number" placeholder="e.g. WPA 1234/2025" autocomplete="off" autocapitalize="characters" spellcheck="false">
-      <button class="btn" type="submit">Add</button>
-    </form>
-    <p class="small">You can paste many at once. Your list is saved on this device, so you only add cases once.</p>
-    <ul class="mycases" id="mycases"></ul>
-    <button class="link" id="clearAll" type="button" hidden>Remove all</button>
+  <section class="hero">
+    <h1>Is your case <mark>listed</mark>?</h1>
+    <p>Save your case numbers once. Then drop in the day's cause list PDF and see the court, item and time for each case, with anything the court changed for that bench.</p>
   </section>
 
-  <section class="step" id="step2">
-    <h2 class="step-title"><span class="num">2</span> Cause lists</h2>
-    <ul class="lists" id="lists"></ul>
-    <div id="progress" hidden><p class="small" id="progressText"></p><div class="bar"><i id="barFill"></i></div></div>
-    <label class="upload" id="drop">
-      <input type="file" id="file" accept="application/pdf,.pdf" multiple>
-      <strong id="dropTitle">Upload cause list PDF</strong>
-      <span class="small" id="dropHint">Daily, supplementary or monthly list. You can choose several at once.</span>
-    </label>
-    <p class="error" id="uploadError" hidden></p>
-    <p class="tip" id="suppTip" hidden>Supplementary lists often come out late at night or the next morning, and are taken up first. Add them here when they are published.</p>
-  </section>
+  <div class="grid">
+    <aside class="side">
+      <section class="panel" aria-labelledby="mycases-title">
+        <div class="panel-head"><h2 id="mycases-title">My cases</h2><span class="count num" id="count"></span></div>
+        <div class="panel-body">
+          <form class="add" id="addForm">
+            <input class="field" id="newCase" aria-label="Case number" placeholder="WPA 1234/2025" autocomplete="off" autocapitalize="characters" spellcheck="false">
+            <button class="btn" type="submit">Add</button>
+          </form>
+          <p class="hint">Type any way you like, or paste a whole list. Saved on this device only.</p>
+          <input class="field filter" id="filter" aria-label="Find in my cases" placeholder="Find in my cases" hidden>
+          <div class="empty-cases" id="emptyCases">No cases yet. Add the case numbers you appear in, e.g. <span class="mono">MAT/1451/2026</span>.</div>
+          <ul class="caselist" id="mycases"></ul>
+          <button class="linkbtn" id="clearAll" type="button" hidden>Remove all</button>
+        </div>
+      </section>
+    </aside>
 
-  <section id="results" aria-live="polite"></section>
-
-  <footer>The PDF stays on your device. Always confirm against the official list.</footer>
+    <main class="main">
+      <ul class="lists" id="lists"></ul>
+      <div class="panel progress" id="progress" hidden><span class="hint" id="progressText"></span><div class="bar"><i id="barFill"></i></div></div>
+      <label class="drop" id="drop">
+        <input type="file" id="file" accept="application/pdf,.pdf" multiple>
+        <span class="drop-icon" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M12 17v-6"/><path d="m9.5 13.5 2.5-2.5 2.5 2.5"/></svg></span>
+        <span class="drop-text"><b id="dropTitle">Upload the cause list PDF</b><span id="dropHint">Daily, supplementary or monthly. Drop it anywhere on this page.</span></span>
+        <span class="btn ghost" id="dropBtn">Choose PDF</span>
+      </label>
+      <p class="note-line err" id="uploadError" hidden></p>
+      <p class="note-line warn" id="suppTip" hidden>Supplementary lists usually come out on the hearing day, between 10 am and 3 pm, and are taken up first. Add them here when they appear.</p>
+      <section id="results" aria-live="polite" class="main"></section>
+      <footer><span>The PDF is read on this device. Nothing is uploaded.</span><span>Always confirm against the official list.</span></footer>
+    </main>
+  </div>
 </div>
+<div class="dropzone-overlay" id="overlay" hidden><div>Drop the cause list PDF</div></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script>
@@ -167,10 +274,12 @@ const WORKER = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worke
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const fmt = n => n.toLocaleString('en-IN');
+const CHEV = '<svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
 
 let index = null, results = EXAMPLE, showingExample = true;
 let lists = [], nextListId = 1;
 let cases = load();
+let lastGroups = null;
 
 // Cases seen at earlier checks, per hearing date, so new listings can be marked. Snapshot taken once per visit.
 const SEEN_KEY = 'clf.seen';
@@ -204,6 +313,7 @@ function noteSnippet(text) {
   if (end < 0 || end - start > 220) end = Math.min(text.length, start + 220);
   return text.slice(start, end + 1).trim().replace(/^\(|\)$/g, '');
 }
+const sentence = s => s ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase() : '';
 
 function load() {
   try { const v = JSON.parse(localStorage.getItem('clf.mycases') || 'null'); if (Array.isArray(v)) return v; } catch {}
@@ -220,15 +330,26 @@ function addCases(text) {
     const bits = line.split(',').map(s => s.trim()).filter(Boolean);
     return bits.length > 1 && bits.every(b => { const n = parseOne(b); return n && n.type !== 'CAN'; }) ? bits : [line.trim()];
   }).filter(s => s.length >= 3);
-  for (const p of parts) { const t = tidy(p); if (!cases.includes(t)) cases.push(t); }
-  save(); drawCases(); refresh();
+  for (const p of parts) { const t = tidy(p); if (!cases.includes(t)) cases.unshift(t); }
+  save(); refresh();
 }
 
+// The saved list, with a dot per case once a list is loaded: green listed, amber to check.
 function drawCases() {
   $('count').textContent = cases.length ? `${cases.length} saved` : '';
-  $('mycases').innerHTML = cases.map((c, i) => `<li>${esc(c)}<button type="button" data-del="${i}" aria-label="Remove ${esc(c)}">×</button></li>`).join('');
+  $('emptyCases').hidden = cases.length > 0;
   $('clearAll').hidden = cases.length < 3;
-  $('step1').classList.toggle('done', cases.length > 0);
+  $('filter').hidden = cases.length < 10;
+  document.body.classList.toggle('has-cases', cases.length > 0);
+  const q = $('filter').value.trim().toUpperCase().replace(/\s+/g, '');
+  const state = {};
+  if (lastGroups && !showingExample) {
+    lastGroups.listed.forEach(x => state[x.label] = 'on');
+    lastGroups.names.forEach(x => state[x.label] = 'on');
+    lastGroups.check.forEach(x => state[x.label] = 'chk');
+  }
+  $('mycases').innerHTML = cases.map((c, i) => (!q || c.replace(/\s+/g, '').includes(q))
+    ? `<li class="${state[c] || ''}"><span class="dot" aria-hidden="true"></span><span class="c">${esc(c)}</span><button type="button" data-del="${i}" aria-label="Remove ${esc(c)}">×</button></li>` : '').join('');
 }
 
 const isWarning = e => /WARNING/i.test(e.list || '');
@@ -258,73 +379,87 @@ function group(res) {
 }
 
 function rowHTML({ label, e, multi, connected }) {
-  const caseLine = esc(label);
   const flags = [
     connected && `Listed together with ${esc(e.caseNo)}`,
     e.rel === 'with' && 'Tagged with the item above it',
     e.rel === 'in' && 'Listed as the main case under this item',
     multi && 'This case appears more than once. Check each entry.',
-    e.kind === 'monthly' && 'Monthly list: this is not a fixed hearing date. Watch the daily list.',
+    e.kind === 'monthly' && 'Monthly list: not a fixed hearing date. Watch the daily list.',
   ].filter(Boolean);
   const adv = [e.advocate, e.advocate2].filter(Boolean).join('; ');
   const important = noteSnippet(e.benchNotes);
   const tags = [
-    e.src && `<span class="tag${e.kind === 'supplementary' ? ' supp' : ''}">${esc(e.src)}</span>`,
+    e.kind === 'supplementary' && '<span class="tag supp">Supplementary</span>',
+    e.kind === 'monthly' && '<span class="tag">Monthly list</span>',
     isNew(label, e) && '<span class="tag new">New since last check</span>',
+    connected && '<span class="tag">Connected case</span>',
+    multi && '<span class="tag note">Listed twice</span>',
   ].filter(Boolean).join('');
   return `<details class="row">
     <summary>
-      <span class="case">${caseLine}</span>
-      <span class="chev"><span class="more">Details ▾</span><span class="less">Hide ▴</span></span>
-      <span class="place">Court <em>${esc(e.court)}</em> · Item <em>${esc(e.serial)}</em>${e.time ? ` · <span class="nw">${esc(e.time)}</span>` : ''}</span>
-      <span class="bench">${esc(judges(e))}</span>
-      ${tags ? `<span class="tags">${tags}</span>` : ''}
-      ${important ? `<span class="courtnote"><b>Court note:</b> ${esc(important.charAt(0) + important.slice(1).toLowerCase())}</span>` : ''}
+      <span class="slot"><small>Court</small><b>${esc(e.court || '–')}</b></span>
+      <span class="slot"><small>Item</small><b>${esc(e.serial || '–')}</b></span>
+      <span class="what"><span class="case">${esc(label)}</span><span class="who">${esc(judges(e))}</span>${tags ? `<span class="tags">${tags}</span>` : ''}</span>
+      <span class="time num">${esc(e.time || '')}</span>
+      ${CHEV}
+      ${important ? `<span class="courtnote"><b>Court note:</b> ${esc(sentence(important))}</span>` : ''}
     </summary>
     <dl class="details">
       ${flags.map(f => `<span class="flag">${f}</span>`).join('')}
-      ${e.vc ? `<dt>VC link</dt><dd><a href="${esc(e.vc)}" target="_blank" rel="noopener">Join the court's video hearing</a></dd>` : ''}
-      ${e.benchNotes ? `<dt>Court notes</dt><dd>${esc(e.benchNotes.length > 700 ? e.benchNotes.slice(0, 700) + '…' : e.benchNotes)}</dd>` : ''}
       <dt>Parties</dt><dd>${esc(e.petitioner)}${e.respondent ? ' <i>vs</i> ' + esc(e.respondent) : ''}</dd>
       ${e.section ? `<dt>Listed under</dt><dd>${esc(e.section)}</dd>` : ''}
       ${e.benchType ? `<dt>Bench</dt><dd>${esc(e.benchType)}</dd>` : ''}
       ${adv ? `<dt>Advocate</dt><dd>${esc(adv)}</dd>` : ''}
       ${e.ia ? `<dt>IA</dt><dd>${esc(e.ia)}</dd>` : ''}
       ${e.remarks ? `<dt>Note</dt><dd>${esc(e.remarks)}</dd>` : ''}
-      <dt>PDF page</dt><dd>${e.page}</dd>
+      ${e.vc ? `<dt>Video hearing</dt><dd><a href="${esc(e.vc)}" target="_blank" rel="noopener">Join the bench's VC link</a></dd>` : ''}
+      ${e.benchNotes ? `<dt>Bench notes</dt><dd>${esc(sentence(e.benchNotes.length > 600 ? e.benchNotes.slice(0, 600) + '…' : e.benchNotes))}</dd>` : ''}
+      <dt>Found in</dt><dd>${esc(e.src || 'Cause list')}, PDF page ${e.page}</dd>
     </dl>
   </details>`;
 }
 
 function render() {
   const box = $('results');
-  if (!showingExample && !cases.length) { box.innerHTML = '<p class="small">Add your cases above to see if they are listed.</p>'; return; }
-  if (!showingExample && !index) { box.innerHTML = '<p class="small">Now upload the cause list PDF.</p>'; return; }
-  const { listed, check, missing, names } = group(results);
+  const groups = group(results);
+  lastGroups = groups;
+  drawCases();
+  if (!showingExample && !index) { box.innerHTML = ''; return; }
+  const { listed, check, missing, names } = groups;
   const n = new Set(listed.map(x => x.label)).size;
-  const total = n + check.length + missing.filter(m => normaliseCase(m)).length;
+  const missingCases = missing.filter(m => normaliseCase(m)).length;
   let html = '';
-  if (showingExample) html += '<div class="example">This is an example. Add your cases and upload your list to see your own results.</div>';
-  if (total) html += n ? `<p class="answer">${n} of your ${total} cases ${n === 1 ? 'is' : 'are'} listed</p>` : '<p class="answer none">None of your cases are listed</p>';
-  if (lists.length) html += `<p class="small">Checked ${lists.map(l => `${esc(l.label)} (${fmt(l.pages)} pages)`).join(', ')}</p>`;
+  if (showingExample) html += '<p class="note-line example">This is an example from the 5 October 2026 list. Add your cases and upload a list to see your own.</p>';
+  html += `<div class="panel summary">
+    <div class="stats">
+      <span class="stat ok"><b>${n}</b><span>listed</span></span>
+      ${check.length ? `<span class="stat warn"><b>${check.length}</b><span>to check</span></span>` : ''}
+      <span class="stat"><b>${missing.length}</b><span>not listed</span></span>
+    </div>
+    <span class="meta">${lists.length ? `Checked <b>${lists.map(l => esc(l.label)).join('</b>, <b>')}</b>` : 'Checked <b>Monthly · Mon 5 Oct 2026</b>'}</span>
+    <button class="btn" id="copy" type="button">Copy for WhatsApp</button>
+  </div>
+  <p class="note-line" id="copyNote" hidden></p>`;
   if (listed.length) {
     const dates = [...new Set(listed.map(x => x.e.dateKey))];
     html += dates.map(d => {
       const rows = listed.filter(x => x.e.dateKey === d);
-      return (dates.length > 1 ? `<h3 class="date-head">${esc(rows[0].e.dateShort || 'Date not printed')}</h3>` : '') + `<div class="list">${rows.map(rowHTML).join('')}</div>`;
+      const title = rows[0].e.dateShort || (showingExample ? 'Monthly list from Mon 5 Oct 2026' : 'Listed');
+      return `<section class="panel day"><div class="day-head"><h3>${esc(title)}</h3><span>${rows.length} listing${rows.length > 1 ? 's' : ''}, by court</span></div>${rows.map(rowHTML).join('')}</section>`;
     }).join('');
+  } else if (!names.length) {
+    html += `<div class="panel" style="padding:22px 18px"><b>None of your cases are in ${lists.length > 1 ? 'these lists' : 'this list'}.</b><p class="hint" style="margin-top:4px">If a supplementary list comes out later, add it above.</p></div>`;
   }
-  if (check.length) html += `<h3 class="group-title"><span class="dot warn"></span>Please check (${check.length})</h3><div class="list">${check.map(c => `<div class="check"><span class="case">${esc(c.label)}</span><p>${esc(c.why)}</p></div>`).join('')}</div>`;
-  if (names.length) html += `<h3 class="group-title"><span class="dot ok"></span>By name</h3><div class="list">${names.map(nm => `<details class="row"><summary><span class="case">${esc(nm.label)}</span><span class="chev"><span class="more">Show ▾</span><span class="less">Hide ▴</span></span><span class="place">${fmt(nm.hits.length)} matter${nm.hits.length > 1 ? 's' : ''} listed</span></summary><ul class="byname">${nm.hits.map(e => `<li><span class="case">${esc(e.caseNo)}</span><span>${isWarning(e) ? 'Warning list' : `Court ${esc(e.court)} · Item ${esc(e.serial)}`}</span></li>`).join('')}</ul></details>`).join('')}</div>`;
-  if (missing.length) html += `<h3 class="group-title"><span class="dot no"></span>Not in ${lists.length > 1 ? 'these lists' : 'this list'} (${missing.length})</h3><ul class="notlisted">${missing.map(m => `<li>${esc(m)}</li>`).join('')}</ul>`;
-  html += `<div class="share"><button class="btn quiet" id="copy" type="button">Copy for WhatsApp</button><span class="small" id="copyNote"></span></div>`;
+  if (check.length) html += `<h3 class="section-title"><i style="background:var(--warn)"></i>Please check</h3><div class="panel checks">${check.map(c => `<div><span class="case">${esc(c.label)}</span><p>${esc(c.why)}</p></div>`).join('')}</div>`;
+  if (names.length) html += `<h3 class="section-title"><i style="background:var(--ok)"></i>By name</h3>${names.map(nm => `<details class="panel fold"><summary><span class="case">${esc(nm.label)}</span><span class="hint">${fmt(nm.hits.length)} matter${nm.hits.length > 1 ? 's' : ''} listed</span>${CHEV}</summary><ul class="byname">${nm.hits.map(e => `<li><span class="mono">${esc(e.caseNo)}</span><span class="num">${isWarning(e) ? 'Warning list' : `Court ${esc(e.court)} · Item ${esc(e.serial)}`}</span></li>`).join('')}</ul></details>`).join('')}`;
+  if (missing.length) html += `<details class="panel fold"><summary><i style="width:9px;height:9px;border-radius:50%;background:var(--faint)"></i>${missing.length} not in ${lists.length > 1 ? 'these lists' : 'this list'}${CHEV}</summary><ul class="chips">${missing.map(m => `<li>${esc(m)}</li>`).join('')}</ul></details>`;
   box.innerHTML = html;
   if (!showingExample && index) rememberSeen(listed);
 }
 
 function refresh() {
   if (index) { results = search(index, cases); showingExample = false; }
-  else showingExample = !cases.length;
+  else { showingExample = !cases.length; results = showingExample ? EXAMPLE : []; }
   render();
 }
 
@@ -384,11 +519,13 @@ function rebuildIndex() {
 }
 
 function drawLists() {
-  $('lists').innerHTML = lists.map(l => `<li><div class="what"><b>${esc(l.label)}</b><span>${esc(l.name)} · ${fmt(l.entries.length)} cases read</span></div><button type="button" data-drop="${l.id}" aria-label="Remove ${esc(l.label)}">×</button></li>`).join('');
-  $('dropTitle').textContent = lists.length ? 'Add another list' : 'Upload cause list PDF';
-  $('dropHint').textContent = lists.length ? 'For example the supplementary list, when it comes out.' : 'Daily, supplementary or monthly list. You can choose several at once.';
+  $('lists').innerHTML = lists.map(l => `<li><span class="k ${l.kind}">${esc(KIND_NAME[l.kind])}</span><span><b>${esc(l.label.split(' · ')[1] || l.label)}</b> <small>· ${fmt(l.entries.length)} cases · ${fmt(l.pages)} pages</small></span><button type="button" data-drop="${l.id}" aria-label="Remove ${esc(l.label)}">×</button></li>`).join('');
+  $('lists').hidden = !lists.length;
+  $('drop').classList.toggle('compact', lists.length > 0);
+  $('dropTitle').textContent = lists.length ? 'Add another list' : 'Upload the cause list PDF';
+  $('dropHint').textContent = lists.length ? 'For example the supplementary list, when it comes out.' : 'Daily, supplementary or monthly. Drop it anywhere on this page.';
+  $('dropBtn').textContent = lists.length ? 'Add PDF' : 'Choose PDF';
   $('suppTip').hidden = !lists.some(l => l.kind === 'daily') || lists.some(l => l.kind === 'supplementary');
-  $('step2').classList.toggle('done', lists.length > 0);
 }
 
 function showError(msg) { $('uploadError').textContent = msg; $('uploadError').hidden = !msg; }
@@ -403,6 +540,7 @@ async function readList(file) {
     page.cleanup();
     if (p % 25 === 0 || p === doc.numPages) {
       $('barFill').style.width = (100 * p / doc.numPages) + '%';
+      $('progressText').textContent = `Reading ${file.name}: page ${fmt(p)} of ${fmt(doc.numPages)}`;
       await new Promise(r => { const c = new MessageChannel(); c.port1.onmessage = r; c.port2.postMessage(0); });
     }
   }
@@ -447,44 +585,46 @@ async function loadFiles(files) {
   $('results').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
 }
 
-function bindPicker() {
-  $('file').addEventListener('change', e => { loadFiles(e.target.files); e.target.value = ''; });
-  const d = $('drop');
-  ['dragenter', 'dragover'].forEach(t => d.addEventListener(t, e => { e.preventDefault(); d.classList.add('over'); }));
-  ['dragleave', 'drop'].forEach(t => d.addEventListener(t, e => { e.preventDefault(); d.classList.remove('over'); }));
-  d.addEventListener('drop', e => loadFiles(e.dataTransfer.files));
-  $('lists').addEventListener('click', e => {
-    const b = e.target.closest('[data-drop]'); if (!b) return;
-    lists = lists.filter(l => l.id !== +b.dataset.drop);
-    drawLists(); rebuildIndex();
-    if (!index) { results = EXAMPLE; showingExample = !cases.length; render(); } else refresh();
-  });
-}
+// Upload: the file picker, the drop box, and dropping anywhere on the page.
+$('file').addEventListener('change', e => { loadFiles(e.target.files); e.target.value = ''; });
+let dragDepth = 0;
+const hasFiles = e => [...(e.dataTransfer?.types || [])].includes('Files');
+window.addEventListener('dragenter', e => { if (!hasFiles(e)) return; e.preventDefault(); dragDepth++; $('overlay').hidden = false; });
+window.addEventListener('dragover', e => { if (hasFiles(e)) e.preventDefault(); });
+window.addEventListener('dragleave', e => { if (!hasFiles(e)) return; if (--dragDepth <= 0) { dragDepth = 0; $('overlay').hidden = true; } });
+window.addEventListener('drop', e => { if (!hasFiles(e)) return; e.preventDefault(); dragDepth = 0; $('overlay').hidden = true; loadFiles(e.dataTransfer.files); });
+$('lists').addEventListener('click', e => {
+  const b = e.target.closest('[data-drop]'); if (!b) return;
+  lists = lists.filter(l => l.id !== +b.dataset.drop);
+  drawLists(); rebuildIndex(); refresh();
+});
 
+// My cases
 $('addForm').addEventListener('submit', e => { e.preventDefault(); const v = $('newCase').value; if (v.trim()) { addCases(v); $('newCase').value = ''; } $('newCase').focus(); });
 $('newCase').addEventListener('paste', e => {
   const t = e.clipboardData && e.clipboardData.getData('text');
   if (t && /[\n,;]/.test(t.trim())) { e.preventDefault(); addCases(t); }
 });
+$('filter').addEventListener('input', drawCases);
 $('mycases').addEventListener('click', e => {
   const b = e.target.closest('[data-del]'); if (!b) return;
-  cases.splice(+b.dataset.del, 1); save(); drawCases(); refresh();
+  cases.splice(+b.dataset.del, 1); save(); refresh();
 });
 $('clearAll').addEventListener('click', () => {
   const b = $('clearAll');
-  if (b.dataset.sure) { cases = []; save(); drawCases(); refresh(); delete b.dataset.sure; b.textContent = 'Remove all'; }
+  if (b.dataset.sure) { cases = []; save(); refresh(); delete b.dataset.sure; b.textContent = 'Remove all'; }
   else { b.dataset.sure = '1'; b.textContent = 'Tap again to remove all'; setTimeout(() => { delete b.dataset.sure; b.textContent = 'Remove all'; }, 3000); }
 });
+
+// Copy for WhatsApp
 $('results').addEventListener('click', async e => {
   if (!e.target.closest('#copy')) return;
-  const text = messageText();
-  try { await navigator.clipboard.writeText(text); $('copyNote').textContent = 'Copied. Paste it in WhatsApp.'; }
-  catch { $('copyNote').textContent = 'Copy did not work here. Select the text below.'; $('results').insertAdjacentHTML('beforeend', `<textarea readonly style="width:100%;min-height:160px">${esc(text)}</textarea>`); }
+  const text = messageText(), note = $('copyNote');
+  note.hidden = false;
+  try { await navigator.clipboard.writeText(text); note.className = 'note-line example'; note.textContent = 'Copied. Paste it into WhatsApp.'; }
+  catch { note.className = 'note-line example'; note.innerHTML = `Copy didn't work here. Select the text below and copy it.<textarea class="copybox" readonly>${esc(text)}</textarea>`; }
 });
 
-bindPicker();
 prepareEngine().catch(() => { engineReady = null; });
-drawCases();
-showingExample = !cases.length;
-render();
+refresh();
 </script>
