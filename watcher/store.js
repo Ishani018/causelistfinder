@@ -45,12 +45,21 @@ function redisStore(url, token) {
   };
 }
 
+// Vercel's Upstash integration names its variables KV_REST_API_URL / _TOKEN, or with a custom prefix
+// chosen when connecting (e.g. STORAGE_KV_REST_API_URL); older setups use UPSTASH_REDIS_REST_URL / _TOKEN.
+function upstashEnv(env = process.env) {
+  for (const urlKey of Object.keys(env).filter(k => /(^|_)(KV_REST_API|UPSTASH_REDIS_REST)_URL$/.test(k)).sort((a, b) => a.length - b.length)) {
+    const token = env[urlKey.replace(/_URL$/, '_TOKEN')];
+    if (env[urlKey] && token) return { url: env[urlKey], token };
+  }
+  return null;
+}
+
 function pickStore() {
-  const url = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
-  const token = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
-  if (url && token) return redisStore(url, token);
+  const up = upstashEnv();
+  if (up) return redisStore(up.url, up.token);
   if (process.env.VERCEL) throw new Error('No storage connected: add an Upstash Redis store to this Vercel project');
   return fileStore(process.env.WATCH_DATA_DIR || path.join(__dirname, '..', 'data'));
 }
 
-module.exports = { pickStore, fileStore, redisStore };
+module.exports = { pickStore, fileStore, redisStore, upstashEnv };
