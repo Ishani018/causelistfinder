@@ -1,0 +1,39 @@
+# Calls the watcher on Vercel every 10 minutes. The watcher itself runs in Vercel's Mumbai region,
+# which the court website answers; GitHub's runners only make this one HTTPS call to Vercel.
+# Needs the repository secret CRON_SECRET (the same value as CRON_SECRET in the Vercel project).
+# GitHub may start scheduled runs a few minutes late.
+name: Call watcher
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: call-watcher
+  cancel-in-progress: false
+
+jobs:
+  call:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Run one check on Vercel
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$CRON_SECRET" ]; then
+            echo "::error::Add the repository secret CRON_SECRET (Settings → Secrets and variables → Actions)."
+            exit 1
+          fi
+          code=$(curl -sS -m 90 -o out.json -w '%{http_code}' -H "Authorization: Bearer $CRON_SECRET" https://causelistfinder.vercel.app/api/watch)
+          echo "HTTP $code"
+          node -e '
+            const d = JSON.parse(require("fs").readFileSync("out.json", "utf8"));
+            if (d.error) { console.log("error:", d.error); process.exit(0); }
+            if (d.skipped) { console.log("skipped:", d.skipped); process.exit(0); }
+            console.log(`new lists: ${d.found.length}, problems: ${d.problems.length}`);
+            for (const f of d.found) console.log(`  ${f.title} — ${f.cases ?? "?"} cases${f.problem ? " — PROBLEM: " + f.problem : ""}`);
+            for (const p of d.problems) console.log(`::warning::${p}`);
+          '
+          [ "$code" = "200" ]

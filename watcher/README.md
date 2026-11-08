@@ -30,12 +30,7 @@ One-time setup in the Vercel dashboard:
 1. **Storage:** Storage → Create → **Upstash for Redis** (free plan) → connect it to this project. That adds `KV_REST_API_URL` and `KV_REST_API_TOKEN`.
 2. **Secret:** Settings → Environment Variables → add `CRON_SECRET` with a long random value (for example the output of `openssl rand -hex 24`). Optionally add `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID`.
 3. **Redeploy** (Deployments → ⋯ → Redeploy) so the new variables take effect.
-4. **Schedule:** on the Hobby plan Vercel's own cron runs only once a day (it's set in `vercel.json` as a fallback). For every 5 minutes, create a free job at cron-job.org:
-   - URL `https://causelistfinder.vercel.app/api/watch`
-   - every 5 minutes
-   - header `Authorization: Bearer <your CRON_SECRET>`
-
-   On the Pro plan you can instead change the cron in `vercel.json` to `*/5 * * * *`.
+4. **Schedule:** on the Hobby plan Vercel's own cron runs only once a day (it's set in `vercel.json` as a fallback). The frequent calls come from GitHub: `.github/workflows/call-watcher.yml` calls `/api/watch` every 10 minutes. Add the same secret to the GitHub repo: Settings → Secrets and variables → Actions → New repository secret → name `CRON_SECRET`. GitHub can start scheduled runs a few minutes late, which is fine for Phase 0. For punctual 5-minute checks later, use cron-job.org (with the header `Authorization: Bearer <CRON_SECRET>`) or Vercel Pro with `*/5 * * * *` in `vercel.json`.
 
 Check it's working at `https://causelistfinder.vercel.app/api/status`. Locally, `npm run report` reads the same Upstash log if `KV_REST_API_URL` and `KV_REST_API_TOKEN` are set in your shell.
 
