@@ -6,5 +6,6 @@ module.exports = async (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
   const user = await auth.getUser(req);
   if (user && req.query?.open) await logActivity(req, 'open', user);
+  if (!auth.signInOn()) { if (req.query?.open) await logActivity(req, 'open', null); return res.status(200).json({ user: null, open: true }); }
   res.status(200).json({ user, clientId: process.env.GOOGLE_CLIENT_ID || null, sessionHours: auth.sessionHours() });
 };

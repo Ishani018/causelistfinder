@@ -888,6 +888,7 @@ async function boot() {
     if (!res.ok) throw new Error();
     d = await res.json();
   } catch { $('app').hidden = false; $('drop').hidden = false; return; }   // not the hosted site: PDF upload only
+  if (d.open) { $('app').hidden = false; loadWatch(); watchTimer = setInterval(loadWatch, 60000); return; }   // sign-in not switched on yet
   if (d.user) return showApp(d.user);
   showGate();
   if (!d.clientId) { $('gateMsg').textContent = "Sign-in isn't set up yet (GOOGLE_CLIENT_ID is missing in Vercel)."; $('gateMsg').hidden = false; return; }

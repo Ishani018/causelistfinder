@@ -10,7 +10,7 @@ const site = require('../watcher/court-site.js');
 const { pickStore } = require('../watcher/store.js');
 const { readList } = require('../tools/read-list.js');
 const { buildIndex, search } = require('../src/parser.js');
-const { requireUser } = require('../lib/auth.js');
+const { requireUser, clientIp } = require('../lib/auth.js');
 const { logActivity } = require('../lib/activity.js');
 
 const MAX_CASES = 500;
@@ -53,7 +53,7 @@ module.exports = async (req, res) => {
   if (cases.length > MAX_CASES) return res.status(400).json({ error: `At most ${MAX_CASES} cases per check.` });
   if (!sides.length) return res.status(400).json({ error: 'Pick at least one side.' });
   try {
-    if (await pickStore().hit(`check:${user.email}`) > CHECKS_PER_HOUR) {
+    if (await pickStore().hit(`check:${user.email || 'ip:' + clientIp(req)}`) > CHECKS_PER_HOUR) {
       await logActivity(req, 'check-refused', user, { date, sides, cases: cases.length, reason: `over ${CHECKS_PER_HOUR} checks this hour` });
       return res.status(429).json({ error: `That's more than ${CHECKS_PER_HOUR} checks this hour. Try again later.` });
     }

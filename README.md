@@ -45,7 +45,8 @@ npm run report                       # what the watcher has seen
 
 ## Sign-in and the owner's page
 
-The hosted site is for invited people only: they sign in with Google, and every API call checks the
+Sign-in switches on when `GOOGLE_CLIENT_ID` is set; until then the site is open (checks are still logged and limited per IP).
+With it on, the hosted site is for invited people only: they sign in with Google, and every API call checks the
 sign-in. Set these in Vercel (Project → Settings → Environment Variables), then redeploy:
 
 | Variable | What |
