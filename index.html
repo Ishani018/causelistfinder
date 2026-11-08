@@ -226,6 +226,12 @@ body.has-cases .hero p { display: none; }
 .seg label input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; }
 .seg label input::-webkit-calendar-picker-indicator { position: absolute; inset: 0; width: 100%; height: 100%; cursor: pointer; }
 @media (max-width: 560px) { .seg { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.sides { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
+.sides > span { margin-right: 4px; font-weight: 600; }
+.sides button { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border: 1px solid var(--rule); border-radius: 999px; background: var(--sunk); font-size: 13px; font-weight: 500; cursor: pointer; }
+.sides button::before { content: ""; width: 14px; height: 14px; border-radius: 4px; border: 1.5px solid var(--faint); box-sizing: border-box; }
+.sides button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent) 9%, var(--panel)); }
+.sides button[aria-pressed="true"]::before { border-color: var(--accent); background: var(--accent) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12l5 5 9-10'/%3E%3C/svg%3E") center/10px no-repeat; }
 .btn.big { width: 100%; min-height: 54px; font-size: 16px; border-radius: 11px; }
 .btn.big[disabled] { cursor: progress; filter: none; opacity: .85; }
 .spin { width: 18px; height: 18px; border-radius: 50%; border: 2px solid currentColor; border-right-color: transparent; animation: spin .8s linear infinite; }
@@ -304,6 +310,7 @@ footer { margin-top: 28px; font-size: 13px; color: var(--muted); display: flex; 
           <p class="sub">Live from the Calcutta High Court website: <b>every bench</b> and the <b>supplementary lists</b> for the day.</p>
         </div>
         <div class="seg" id="days" role="radiogroup" aria-label="Hearing day"></div>
+        <div class="sides" id="sides" role="group" aria-label="Which side"></div>
         <button class="btn big" id="checkBtn" type="button">Check my cases</button>
         <div class="running" id="running" hidden><i></i></div>
         <p class="note-line warn" id="dayNote" hidden></p>
@@ -693,6 +700,7 @@ function rowHTML({ label, e, multi, connected }) {
   const adv = [e.advocate, e.advocate2].filter(Boolean).join('; ');
   const important = noteSnippet(e.benchNotes);
   const tags = [
+    e.sideName && `<span class="tag">${esc(e.sideName)}</span>`,
     e.kind === 'supplementary' && '<span class="tag supp">Supplementary</span>',
     e.kind === 'monthly' && '<span class="tag">Monthly list</span>',
     isNew(label, e) && '<span class="tag new">New since last check</span>',
@@ -740,7 +748,8 @@ function render() {
       ${check.length ? `<span class="stat warn"><b>${check.length}</b><span>to check</span></span>` : ''}
       <span class="stat"><b>${missing.length}</b><span>not listed</span></span>
     </div>
-    <span class="meta">${activeLists().length ? `Checked <b>${activeLists().map(l => esc(l.label)).join('</b>, <b>')}</b>` : 'Checked <b>Monthly · Mon 5 Oct 2026</b>'}</span>
+    <span class="meta">${remote ? `Checked <b>${remote.lists.length} list${remote.lists.length > 1 ? 's' : ''}</b> for <b>${esc(dayLabel(remote.date))}</b> · ${esc([...new Set(remote.lists.map(l => l.sideName))].join(', '))}`
+      : activeLists().length ? `Checked <b>${activeLists().map(l => esc(l.label)).join('</b>, <b>')}</b>` : 'Checked <b>Monthly · Mon 5 Oct 2026</b>'}</span>
     <button class="btn" id="copy" type="button">Copy for WhatsApp</button>
   </div>
   <p class="note-line" id="copyNote" hidden></p>`;
@@ -764,7 +773,7 @@ function render() {
 function refresh() {
   if (remote) {
     showingExample = false;
-    if (remote.casesKey !== cases.join('|')) return checkDay(remote.date);   // cases changed: check again
+    if (remote.casesKey !== checkKey()) return checkDay(remote.date);   // cases or sides changed: check again
     results = remote.results; render(); return;
   }
   if (index) { results = search(index, cases); showingExample = false; }
@@ -985,6 +994,13 @@ setInterval(loadWatch, 60000);
 const istDay = (offset = 0) => new Date(Date.now() + 5.5 * 3600e3 + offset * 86400e3).toISOString().slice(0, 10);
 const dayLabel = iso => new Date(iso + 'T00:00:00Z').toLocaleDateString('en-IN', { timeZone: 'UTC', weekday: 'short', day: 'numeric', month: 'short' });
 let checking = false;
+// Which benches to check; remembered on this device. Appellate Side by default.
+const SIDES = [['appellate', 'Appellate Side'], ['original', 'Original Side'], ['jalpaiguri', 'Jalpaiguri'], ['portblair', 'Port Blair']];
+let sides = (() => { try { const v = JSON.parse(localStorage.getItem('clf.sides') || 'null'); if (Array.isArray(v) && v.length) return v; } catch {} return ['appellate']; })();
+const checkKey = () => cases.join('|') + '#' + sides.join(',');
+function drawSides() {
+  $('sides').innerHTML = '<span>Side</span>' + SIDES.map(([k, name]) => `<button type="button" data-side="${k}" aria-pressed="${sides.includes(k)}">${name}</button>`).join('');
+}
 // Default day: tomorrow once the evening list is usually out (after 6 pm IST), otherwise today.
 let selectedDay = new Date(Date.now() + 5.5 * 3600e3).getUTCHours() >= 18 ? istDay(1) : istDay(0);
 function drawDays() {
@@ -993,6 +1009,7 @@ function drawDays() {
   const other = !quick.some(([, iso]) => iso === selectedDay);
   $('days').innerHTML = quick.map(([name, iso]) => `<button type="button" role="radio" data-day="${iso}" aria-checked="${selectedDay === iso}"><b>${name}</b><span>${esc(dayLabel(iso))}</span></button>`).join('')
     + `<label role="radio" aria-checked="${other}"><b>${other ? esc(dayLabel(selectedDay)) : 'Other day'}</b><span>${other ? 'Change date' : 'Pick a date'}</span><input type="date" id="dayInput" value="${selectedDay}" aria-label="Pick another date"></label>`;
+  drawSides();
   drawCheckButton();
 }
 function drawCheckButton() {
@@ -1011,7 +1028,7 @@ async function checkDay(date) {
   const tick = () => { b.innerHTML = `<span class="spin" aria-hidden="true"></span> Reading ${esc(dayLabel(date))}'s lists… ${Math.round((Date.now() - t0) / 1000)}s`; };
   tick(); const timer = setInterval(tick, 1000);
   try {
-    const res = await fetch('/api/check', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ date, cases }) });
+    const res = await fetch('/api/check', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ date, cases, sides }) });
     const d = await res.json();
     if (!res.ok) throw new Error(d.error || `HTTP ${res.status}`);
     $('barFill').style.width = '100%';
@@ -1022,7 +1039,7 @@ async function checkDay(date) {
       else dayNote(`No cause list was published for <b>${esc(dayLabel(date))}</b>: no bench sat that day.${near ? ` Nearest lists: ${near}` : ''}`, true);
     } else {
       lists = []; index = null;
-      remote = { date, lists: d.lists, results: d.results, casesKey: cases.join('|') };
+      remote = { date, lists: d.lists, results: d.results, casesKey: checkKey() };
       if (d.problems.length) dayNote(`Some lists couldn't be read: ${d.problems.length}. The rest are shown.`);
     }
   } catch (e) {
@@ -1037,6 +1054,15 @@ async function checkDay(date) {
 $('days').addEventListener('click', e => { const b = e.target.closest('[data-day]'); if (b) { selectedDay = b.dataset.day; dayNote(''); drawDays(); } });
 $('days').addEventListener('change', e => { if (e.target.id === 'dayInput' && e.target.value) { selectedDay = e.target.value; dayNote(''); drawDays(); } });
 $('checkBtn').addEventListener('click', () => checkDay(selectedDay));
+$('sides').addEventListener('click', e => {
+  const b = e.target.closest('[data-side]'); if (!b) return;
+  const k = b.dataset.side;
+  if (sides.includes(k)) { if (sides.length === 1) return; sides = sides.filter(s => s !== k); }
+  else sides = SIDES.map(([s]) => s).filter(s => s === k || sides.includes(s));
+  try { localStorage.setItem('clf.sides', JSON.stringify(sides)); } catch {}
+  drawSides();
+  if (remote) refresh();
+});
 $('dayNote').addEventListener('click', e => { const b = e.target.closest('[data-near]'); if (b) { selectedDay = b.dataset.near; drawDays(); checkDay(selectedDay); } });
 $('uploadLink').addEventListener('click', () => { $('drop').hidden = false; $('file').click(); });
 $('moreCases').addEventListener('click', () => { casesOpen = !casesOpen; drawCases(); });
