@@ -281,11 +281,6 @@ footer { margin-top: 28px; font-size: 13px; color: var(--muted); display: flex; 
 .me .linkbtn { align-self: center; }
 .disclaimer { margin: 0; padding: 10px 12px; border-radius: 9px; background: var(--warn-soft); color: var(--ink); font-size: 13px; line-height: 1.45; }
 .disclaimer b { color: var(--warn); }
-.log-list { list-style: none; margin: 0; padding: 0; max-height: 360px; overflow-y: auto; }
-.log-list li { padding: 8px 0; border-bottom: 1px solid var(--rule); font-size: 12px; color: var(--muted); }
-.log-list li b { color: var(--ink); font-weight: 600; }
-.log-list .bad { color: var(--supp); }
-.log-links { display: flex; flex-wrap: wrap; gap: 8px 14px; margin-top: 10px; font-size: 13px; }
 
 /* Drop anywhere */
 .dropzone-overlay { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; background: color-mix(in srgb, var(--bg) 82%, transparent); backdrop-filter: blur(2px); }
@@ -340,7 +335,7 @@ footer { margin-top: 28px; font-size: 13px; color: var(--muted); display: flex; 
   <div class="top-in">
     <div class="brand"><span class="logo" aria-hidden="true"></span>Cause List Finder</div>
     <span class="court">Calcutta High Court</span>
-    <div class="me" id="me" hidden><span id="meName"></span><button class="linkbtn" id="signOut" type="button">Sign out</button></div>
+    <div class="me" id="me" hidden><span id="meName"></span><a href="/admin.html" id="adminLink" hidden>Owner</a><button class="linkbtn" id="signOut" type="button">Sign out</button></div>
   </div>
 </header>
 
@@ -372,13 +367,6 @@ footer { margin-top: 28px; font-size: 13px; color: var(--muted); display: flex; 
         <div class="panel-body">
           <p class="hint" id="watchNote">Checks the Calcutta High Court website every 5 minutes for new cause lists.</p>
           <ul class="watch-list" id="watchList"></ul>
-        </div>
-      </details>
-      <details class="panel watch" id="logPanel" hidden>
-        <summary class="watch-head"><h2>Activity log</h2><span class="watch-when">Admins only</span><svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></summary>
-        <div class="panel-body">
-          <ul class="log-list" id="logList"><li>Loading…</li></ul>
-          <div class="log-links"><a href="/api/log?format=csv" download>Download activity log (CSV)</a><a href="/api/log?format=csv&amp;kind=watcher" download>Download watcher log (CSV)</a></div>
         </div>
       </details>
     </aside>
@@ -865,7 +853,7 @@ function showApp(user) {
   me = user;
   $('gate').hidden = true; $('app').hidden = false;
   $('me').hidden = false; $('meName').textContent = user.name || user.email; $('meName').title = user.email;
-  $('logPanel').hidden = !user.admin;
+  $('adminLink').hidden = !user.admin;   // the owner's activity page; never shown to other users
   loadWatch(); clearInterval(watchTimer); watchTimer = setInterval(loadWatch, 60000);
 }
 function googleButton(clientId) {
@@ -983,16 +971,6 @@ $('sides').addEventListener('click', e => {
 });
 $('dayNote').addEventListener('click', e => { const b = e.target.closest('[data-near]'); if (b) { selectedDay = b.dataset.near; drawDays(); checkDay(selectedDay); } });
 $('uploadLink').addEventListener('click', () => { $('drop').hidden = false; $('file').click(); });
-const ACTION = { login: 'Signed in', 'login-refused': 'Sign-in refused', logout: 'Signed out', open: 'Opened the site', check: 'Checked', 'check-refused': 'Check refused (limit)' };
-async function loadLog() {
-  try {
-    const res = await fetch('/api/log', { cache: 'no-store' });
-    const d = await res.json();
-    if (!res.ok) throw new Error(d.error || `HTTP ${res.status}`);
-    $('logList').innerHTML = d.rows.slice(0, 60).map(r => `<li class="${/refused/.test(r.action) ? 'bad' : ''}"><b>${esc(r.email || 'unknown')}</b> · ${esc(ACTION[r.action] || r.action)}${r.action === 'check' ? ` ${esc(dayLabel(r.date))}: ${r.cases} case${r.cases === 1 ? '' : 's'}, ${r.found} listed` : ''}${r.reason ? ` (${esc(r.reason)})` : ''}<br>${esc(istTime(r.at))}${r.ip ? ' · ' + esc(r.ip) : ''}</li>`).join('') || '<li>Nothing logged yet.</li>';
-  } catch (e) { $('logList').innerHTML = `<li class="bad">Couldn't load the log (${esc(e.message)}).</li>`; }
-}
-$('logPanel').addEventListener('toggle', () => { if ($('logPanel').open) loadLog(); });
 $('moreCases').addEventListener('click', () => { casesOpen = !casesOpen; drawCases(); });
 
 prepareEngine().catch(() => { engineReady = null; });

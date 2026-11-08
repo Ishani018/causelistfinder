@@ -15,4 +15,5 @@ const head = '<!doctype html>\n<html lang="en">\n<meta charset="utf-8">\n<meta n
 fs.writeFileSync(path.join(root, 'index.html'), head + page + '\n</html>\n');
 fs.mkdirSync(path.join(root, 'dist'), { recursive: true });
 fs.writeFileSync(path.join(root, 'dist', 'artifact.html'), page);
+fs.copyFileSync(path.join(root, 'src', 'admin.html'), path.join(root, 'admin.html'));   // the owner's page
 console.log(`index.html and dist/artifact.html written (${(page.length / 1024).toFixed(0)} KB)`);

@@ -43,18 +43,24 @@ npm run report                       # what the watcher has seen
 
 `docs/PLAN.md` covers automatic alerts: watching the court website, parsing each new list, and messaging users. It includes the measured publishing times (daily lists around 21:00 the evening before; supplementary lists on the same day between 10:00 and 15:00).
 
-## Sign-in and activity log
+## Sign-in and the owner's page
 
 The hosted site is for invited people only: they sign in with Google, and every API call checks the
 sign-in. Set these in Vercel (Project → Settings → Environment Variables), then redeploy:
 
 | Variable | What |
 |---|---|
-| `GOOGLE_CLIENT_ID` | OAuth client ID (Google Cloud Console → APIs & Services → Credentials → Web application; authorised JavaScript origin `https://causelistfinder.vercel.app`) |
-| `ALLOWED_EMAILS` | who may sign in, comma-separated |
-| `ADMIN_EMAILS` | who may also read and download the activity log |
+| `GOOGLE_CLIENT_ID` | OAuth client ID (Google Cloud Console → APIs & Services → Credentials → Web application; add each site address as an authorised JavaScript origin) |
+| `ADMIN_EMAILS` | the owner(s): always allowed in, and can open `/admin.html` |
+| `ALLOWED_EMAILS` | optional: people who are always allowed in |
 | `SESSION_HOURS` | how long a sign-in lasts (default 168 = 7 days) |
 | `CHECKS_PER_HOUR` | checks allowed per person per hour (default 60) |
 
-Every sign-in, refused sign-in, sign-out, page open and check is logged (who, when, IP, how many cases;
-not the case numbers). Admins see it in the Activity log panel and can download it as CSV.
+Everyone else is invited or removed on the owner's page (`/admin.html`): an overview, people with
+their last activity, the watcher's health, and the full activity log with filters and CSV downloads.
+Every sign-in, refused sign-in, sign-out, page open, check and invite is logged (who, when, IP, device,
+how many cases; not the case numbers). Users never see the log.
+
+**Moving to your own domain:** add the domain in Vercel (Settings → Domains), add it as another
+authorised JavaScript origin on the Google OAuth client, and point the cron-job.org job at it (or leave
+it on the vercel.app address, which keeps working). Invites and logs stay; people sign in once again.

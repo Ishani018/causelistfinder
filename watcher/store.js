@@ -12,6 +12,7 @@ function fileStore(dir) {
   const stateFile = path.join(dir, 'state.json');
   const logFile = path.join(dir, 'log.jsonl');
   const activityFile = path.join(dir, 'activity.jsonl');
+  const usersFile = path.join(dir, 'users.json');
   const hits = new Map();
   return {
     kind: 'files', pdfDir, keepPdfs: true,
@@ -29,6 +30,8 @@ function fileStore(dir) {
     async activityRecent(n) {
       try { return fs.readFileSync(activityFile, 'utf8').split('\n').filter(Boolean).slice(-n).map(l => JSON.parse(l)); } catch { return []; }
     },
+    async users() { try { return JSON.parse(fs.readFileSync(usersFile, 'utf8')); } catch { return {}; } },
+    async userSet(email, info) { const u = await this.users(); if (info) u[email] = info; else delete u[email]; fs.writeFileSync(usersFile, JSON.stringify(u, null, 1)); },
     async hit(key) { const k = key + '|' + Math.floor(Date.now() / 3600e3); hits.set(k, (hits.get(k) || 0) + 1); return hits.get(k); },
   };
 }
@@ -57,6 +60,9 @@ function redisStore(url, token) {
     // Who signed in and what they did on the website (see lib/activity.js). Kept apart from the watcher's log.
     async activity(rec) { await call('RPUSH', 'clf:activity', JSON.stringify(rec)); await call('LTRIM', 'clf:activity', -ACTIVITY_KEEP, -1); },
     async activityRecent(n) { return (await call('LRANGE', 'clf:activity', -n, -1)).map(l => JSON.parse(l)); },
+    // People invited from the owner's page: email -> { addedAt, addedBy, note }. Pass no info to remove.
+    async users() { const r = await call('HGETALL', 'clf:users') || []; const o = {}; for (let i = 0; i < r.length; i += 2) o[r[i]] = JSON.parse(r[i + 1]); return o; },
+    async userSet(email, info) { if (info) await call('HSET', 'clf:users', email, JSON.stringify(info)); else await call('HDEL', 'clf:users', email); },
     // Calls this hour for a key (e.g. checks by one person); the counter expires on its own.
     async hit(key) {
       const k = `clf:hits:${key}:${Math.floor(Date.now() / 3600e3)}`;

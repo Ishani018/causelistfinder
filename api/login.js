@@ -13,7 +13,7 @@ module.exports = async (req, res) => {
     await logActivity(req, 'login-refused', null, { reason: e.message });
     return res.status(401).json({ error: e.message });
   }
-  if (!auth.allowed().includes(who.email)) {
+  if (!(await auth.isAllowed(who.email))) {
     await logActivity(req, 'login-refused', who, { reason: 'not invited' });
     return res.status(403).json({ error: `${who.email} isn't invited. Ask the owner to add you.`, email: who.email });
   }

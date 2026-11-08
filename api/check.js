@@ -43,7 +43,7 @@ async function fetchList(url) {
 module.exports = async (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
   if (req.method !== 'POST') return res.status(405).json({ error: 'Use POST with { date, cases }.' });
-  const user = requireUser(req, res); if (!user) return;
+  const user = await requireUser(req, res); if (!user) return;
   const t0 = Date.now();
   const { date, cases } = req.body || {};
   const sides = (Array.isArray(req.body?.sides) ? req.body.sides : Object.keys(site.SIDES)).filter(s => site.SIDES[s]);
