@@ -734,12 +734,12 @@ async function loadWatch() {
     : 'Checks the Calcutta High Court website every 5 minutes. Newest cause lists found:';
   // The same daily list is often both a notice and an archive file: show it once.
   const seen = new Set();
-  const lists = (d.recent || []).filter(r => r.source === 'notice' || r.source === 'archive')
+  const found = (d.recent || []).filter(r => r.source === 'notice' || r.source === 'archive')
     .sort((a, b) => (a.source === 'notice' ? 0 : 1) - (b.source === 'notice' ? 0 : 1))
     .filter(r => { const k = r.type === 'daily' && r.side && r.hearingDate ? `${r.type}|${r.side}|${r.hearingDate}` : r.title; if (seen.has(k)) return false; seen.add(k); return true; })
     .sort((a, b) => (b.uploadedAt || b.foundAt).localeCompare(a.uploadedAt || a.foundAt))
     .slice(0, 6);
-  $('watchList').innerHTML = lists.length ? lists.map(r => `<li><b>${esc(listName(r))}</b><span>${r.uploadedAt ? 'Uploaded ' + esc(istTime(r.uploadedAt)) : 'Found ' + esc(ago(r.foundAt))}${r.cases != null ? ` · ${fmt(r.cases)} cases read` : ''}${r.problem ? ` · <em class="bad">${esc(r.problem)}</em>` : ''}</span></li>`).join('')
+  $('watchList').innerHTML = found.length ? found.map(r => `<li><b>${esc(listName(r))}</b><span>${r.uploadedAt ? 'Uploaded ' + esc(istTime(r.uploadedAt)) : 'Found ' + esc(ago(r.foundAt))}${r.cases != null ? ` · ${fmt(r.cases)} cases read` : ''}${r.problem ? ` · <em class="bad">${esc(r.problem)}</em>` : ''}</span></li>`).join('')
     : '<li><span>No lists found yet.</span></li>';
 }
 loadWatch();
