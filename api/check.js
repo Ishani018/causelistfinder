@@ -10,8 +10,11 @@ const site = require('../watcher/court-site.js');
 const { pickStore } = require('../watcher/store.js');
 const { readList } = require('../tools/read-list.js');
 const { buildIndex, search } = require('../src/parser.js');
+const { requireUser } = require('../lib/auth.js');
+const { logActivity } = require('../lib/activity.js');
 
 const MAX_CASES = 500;
+const CHECKS_PER_HOUR = Number(process.env.CHECKS_PER_HOUR) || 60;   // per person
 const cache = new Map();   // url -> { at, list }: reused while this function instance stays warm
 
 const KIND = { daily: 'Daily', supplementary: 'Supplementary', monthly: 'Monthly' };
@@ -40,6 +43,8 @@ async function fetchList(url) {
 module.exports = async (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
   if (req.method !== 'POST') return res.status(405).json({ error: 'Use POST with { date, cases }.' });
+  const user = requireUser(req, res); if (!user) return;
+  const t0 = Date.now();
   const { date, cases } = req.body || {};
   const sides = (Array.isArray(req.body?.sides) ? req.body.sides : Object.keys(site.SIDES)).filter(s => site.SIDES[s]);
   const wanted = side => !side || sides.includes(side);   // a notice whose title names no side is always read
@@ -47,6 +52,12 @@ module.exports = async (req, res) => {
   if (!Array.isArray(cases) || !cases.length) return res.status(400).json({ error: 'Add at least one case.' });
   if (cases.length > MAX_CASES) return res.status(400).json({ error: `At most ${MAX_CASES} cases per check.` });
   if (!sides.length) return res.status(400).json({ error: 'Pick at least one side.' });
+  try {
+    if (await pickStore().hit(`check:${user.email}`) > CHECKS_PER_HOUR) {
+      await logActivity(req, 'check-refused', user, { date, sides, cases: cases.length, reason: `over ${CHECKS_PER_HOUR} checks this hour` });
+      return res.status(429).json({ error: `That's more than ${CHECKS_PER_HOUR} checks this hour. Try again later.` });
+    }
+  } catch { /* storage unavailable: don't block the check */ }
 
   // Which PDFs: each bench's daily list in the archive, and notices for this date the watcher has logged.
   const day = new Date(date + 'T00:00:00Z');
@@ -115,5 +126,6 @@ module.exports = async (req, res) => {
     const before = sorted.filter(d => d < date).pop(), after = sorted.find(d => d > date);
     nearby = [before, after].filter(Boolean);
   }
+  await logActivity(req, 'check', user, { date, sides, cases: cases.length, found: results.filter(r => r.hits.length).length, lists: lists.length, ms: Date.now() - t0, error: problems.length ? `${problems.length} list(s) unreadable` : undefined });
   res.status(200).json({ date, sides, lists, results, problems, nearby });
 };

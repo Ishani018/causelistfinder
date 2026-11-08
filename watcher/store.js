@@ -11,6 +11,8 @@ function fileStore(dir) {
   fs.mkdirSync(pdfDir, { recursive: true });
   const stateFile = path.join(dir, 'state.json');
   const logFile = path.join(dir, 'log.jsonl');
+  const activityFile = path.join(dir, 'activity.jsonl');
+  const hits = new Map();
   return {
     kind: 'files', pdfDir, keepPdfs: true,
     async loadState() { try { return JSON.parse(fs.readFileSync(stateFile, 'utf8')); } catch { return EMPTY_STATE(); } },
@@ -23,6 +25,11 @@ function fileStore(dir) {
     async unlock() {},
     async note() {},
     async notes() { return {}; },
+    async activity(rec) { fs.appendFileSync(activityFile, JSON.stringify(rec) + '\n'); },
+    async activityRecent(n) {
+      try { return fs.readFileSync(activityFile, 'utf8').split('\n').filter(Boolean).slice(-n).map(l => JSON.parse(l)); } catch { return []; }
+    },
+    async hit(key) { const k = key + '|' + Math.floor(Date.now() / 3600e3); hits.set(k, (hits.get(k) || 0) + 1); return hits.get(k); },
   };
 }
 
@@ -34,7 +41,7 @@ function redisStore(url, token) {
     if (out.error) throw new Error(`Redis ${cmd[0]}: ${out.error}`);
     return out.result;
   };
-  const LOG_KEEP = 20000;
+  const LOG_KEEP = 20000, ACTIVITY_KEEP = 50000;
   return {
     kind: 'redis', pdfDir: fs.mkdtempSync(path.join(os.tmpdir(), 'lists-')), keepPdfs: false,
     async loadState() { const s = await call('GET', 'clf:state'); return s ? JSON.parse(s) : EMPTY_STATE(); },
@@ -47,6 +54,15 @@ function redisStore(url, token) {
     // Small facts for the status page, e.g. the last call that was turned away.
     async note(key, value) { await call('HSET', 'clf:notes', key, JSON.stringify(value)); },
     async notes() { const r = await call('HGETALL', 'clf:notes') || []; const o = {}; for (let i = 0; i < r.length; i += 2) o[r[i]] = JSON.parse(r[i + 1]); return o; },
+    // Who signed in and what they did on the website (see lib/activity.js). Kept apart from the watcher's log.
+    async activity(rec) { await call('RPUSH', 'clf:activity', JSON.stringify(rec)); await call('LTRIM', 'clf:activity', -ACTIVITY_KEEP, -1); },
+    async activityRecent(n) { return (await call('LRANGE', 'clf:activity', -n, -1)).map(l => JSON.parse(l)); },
+    // Calls this hour for a key (e.g. checks by one person); the counter expires on its own.
+    async hit(key) {
+      const k = `clf:hits:${key}:${Math.floor(Date.now() / 3600e3)}`;
+      const n = await call('INCR', k); if (n === 1) await call('EXPIRE', k, 3700);
+      return n;
+    },
   };
 }
 

@@ -1,8 +1,10 @@
-// Public, read-only: when the watcher last checked and what it has logged recently.
+// Signed-in people only, read-only: when the watcher last checked and what it has logged recently.
 const { pickStore } = require('../watcher/store.js');
+const { requireUser } = require('../lib/auth.js');
 
 module.exports = async (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
+  if (!requireUser(req, res)) return;
   try {
     const store = pickStore();
     const [state, recent, notes] = await Promise.all([store.loadState(), store.recent(30), store.notes()]);

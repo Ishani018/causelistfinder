@@ -1,8 +1,10 @@
 // Can this Vercel region reach the court website? Fetches the newest cause-list notices and probes
 // tomorrow's Appellate Side daily list in the archive. Read-only; stores nothing.
 const site = require('../watcher/court-site.js');
+const { requireUser } = require('../lib/auth.js');
 
 module.exports = async (req, res) => {
+  if (!requireUser(req, res)) return;
   const t0 = Date.now();
   const out = { region: process.env.VERCEL_REGION || 'local', checkedAt: new Date().toISOString() };
   try {
