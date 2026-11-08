@@ -53,7 +53,23 @@ module.exports = async (req, res) => {
         sources.push({ url: `${site.BASE}/Notice-Files/CL/${id}`, via: 'notice', side: n.side });
       }
     }
-  } catch { /* storage unavailable: the archive list alone still works */ }
+  } catch { /* storage unavailable: the notices scan below still finds them */ }
+  // Also read the court's notices pages, newest first, back to a few days before the date. This finds
+  // supplementary and vacation lists posted before the watcher started, or between its checks.
+  const known = new Set(sources.map(s => s.url));
+  const stopBefore = new Date(day.getTime() - 4 * 86400e3).toISOString().slice(0, 10);
+  for (let page = 1; page <= 10; page++) {
+    let notices;
+    try { notices = await site.fetchNotices(page); } catch { break; }
+    for (const n of notices) {
+      const t = site.describeTitle(n.title);
+      const url = `${site.BASE}/Notice-Files/CL/${n.id}`;
+      if (t.hearingDate === date && (t.type === 'daily' || t.type === 'supplementary') && !known.has(url)) {
+        known.add(url); sources.push({ url, via: 'notice', side: t.side });
+      }
+    }
+    if (!notices.length || notices.every(n => (n.uploadedAt || '').slice(0, 10) < stopBefore)) break;
+  }
 
   const lists = [], entries = [], raw = new Map(), seenSizes = new Set();
   const problems = [];
