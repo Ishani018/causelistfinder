@@ -210,6 +210,18 @@ body.has-cases .hero p { display: none; }
 .byname li { display: flex; justify-content: space-between; gap: 12px; padding: 7px 0; border-top: 1px solid var(--rule); font-size: 14px; }
 .byname .mono { font-weight: 500; }
 
+/* Court website watch (shown on the hosted site, where /api/status exists) */
+.watch-head { display: flex; align-items: center; gap: 8px; padding: 16px 18px 0; }
+.watch-head h2 { margin: 0; font-size: 15px; font-weight: 700; }
+.live { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 0 3px var(--ok-soft); flex: none; }
+.live.stale { background: var(--warn); box-shadow: 0 0 0 3px var(--warn-soft); }
+.watch-when { margin-left: auto; font-size: 12px; color: var(--muted); white-space: nowrap; }
+.watch-list { list-style: none; margin: 0; padding: 0; }
+.watch-list li { display: flex; flex-direction: column; gap: 2px; padding: 9px 0; border-bottom: 1px solid var(--rule); font-size: 13px; }
+.watch-list li:last-child { border-bottom: 0; }
+.watch-list b { font-weight: 600; font-size: 13px; line-height: 1.35; }
+.watch-list span { color: var(--muted); font-size: 12px; }
+.watch-list .bad { color: var(--supp); }
 .copybox { width: 100%; min-height: 180px; font: 13px/1.5 var(--f-mono); padding: 12px; border-radius: 9px; border: 1px solid var(--rule); background: var(--sunk); }
 footer { margin-top: 28px; font-size: 13px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 6px 18px; }
 
@@ -246,6 +258,13 @@ footer { margin-top: 28px; font-size: 13px; color: var(--muted); display: flex; 
           <div class="empty-cases" id="emptyCases">No cases yet. Add the case numbers you appear in, e.g. <span class="mono">MAT/1451/2026</span>.</div>
           <ul class="caselist" id="mycases"></ul>
           <button class="linkbtn" id="clearAll" type="button" hidden>Remove all</button>
+        </div>
+      </section>
+      <section class="panel" id="watch" aria-labelledby="watch-title" hidden>
+        <div class="watch-head"><span class="live" id="watchDot" aria-hidden="true"></span><h2 id="watch-title">Court website watch</h2><span class="watch-when" id="watchWhen"></span></div>
+        <div class="panel-body">
+          <p class="hint" id="watchNote">Checks the Calcutta High Court website every 5 minutes for new cause lists.</p>
+          <ul class="watch-list" id="watchList"></ul>
         </div>
       </section>
     </aside>
@@ -859,6 +878,48 @@ $('results').addEventListener('click', async e => {
   try { await navigator.clipboard.writeText(text); note.className = 'note-line example'; note.textContent = 'Copied. Paste it into WhatsApp.'; }
   catch { note.className = 'note-line example'; note.innerHTML = `Copy didn't work here. Select the text below and copy it.<textarea class="copybox" readonly>${esc(text)}</textarea>`; }
 });
+
+// Court website watch: on the hosted site, show when the watcher last checked and the newest lists it found.
+const ago = iso => {
+  const m = Math.round((Date.now() - Date.parse(iso)) / 60000);
+  return m < 1 ? 'just now' : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} h ago` : `${Math.round(m / 1440)} days ago`;
+};
+const istTime = iso => new Date(iso).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
+const SIDE_NAME = { appellate: 'Appellate Side', original: 'Original Side', jalpaiguri: 'Jalpaiguri', portblair: 'Port Blair' };
+// Archive entries have plain titles ("daily list 2026-11-09 (appellate)"); notices keep the court's own title.
+function listName(r) {
+  if (r.source === 'archive' && r.hearingDate) {
+    const d = new Date(r.hearingDate + 'T00:00:00Z').toLocaleDateString('en-IN', { timeZone: 'UTC', weekday: 'short', day: 'numeric', month: 'short' });
+    return `${(r.type || 'cause').replace(/^./, c => c.toUpperCase())} list for ${d} · ${SIDE_NAME[r.side] || r.side || ''}`;
+  }
+  return (r.title || '').replace(/\s+/g, ' ');
+}
+async function loadWatch() {
+  let d;
+  try {
+    const res = await fetch('/api/status', { cache: 'no-store' });
+    if (!res.ok) throw new Error();
+    d = await res.json();
+  } catch { return; }   // not on the hosted site (or watcher not set up): keep the box hidden
+  $('watch').hidden = false;
+  const stale = !d.lastCheck || Date.now() - Date.parse(d.lastCheck) > 20 * 60000 || d.consecutiveFailures > 0;
+  $('watchDot').classList.toggle('stale', stale);
+  $('watchWhen').textContent = d.lastCheck ? `Checked ${ago(d.lastCheck)}` : 'Not checked yet';
+  $('watchNote').textContent = d.consecutiveFailures > 0 ? `The court website didn't answer the last ${d.consecutiveFailures} check${d.consecutiveFailures > 1 ? 's' : ''}. Retrying every 5 minutes.`
+    : stale && d.lastCheck ? 'No check in the last 20 minutes. The scheduler may be paused.'
+    : 'Checks the Calcutta High Court website every 5 minutes. Newest cause lists found:';
+  // The same daily list is often both a notice and an archive file: show it once.
+  const seen = new Set();
+  const lists = (d.recent || []).filter(r => r.source === 'notice' || r.source === 'archive')
+    .sort((a, b) => (a.source === 'notice' ? 0 : 1) - (b.source === 'notice' ? 0 : 1))
+    .filter(r => { const k = r.type === 'daily' && r.side && r.hearingDate ? `${r.type}|${r.side}|${r.hearingDate}` : r.title; if (seen.has(k)) return false; seen.add(k); return true; })
+    .sort((a, b) => (b.uploadedAt || b.foundAt).localeCompare(a.uploadedAt || a.foundAt))
+    .slice(0, 6);
+  $('watchList').innerHTML = lists.length ? lists.map(r => `<li><b>${esc(listName(r))}</b><span>${r.uploadedAt ? 'Uploaded ' + esc(istTime(r.uploadedAt)) : 'Found ' + esc(ago(r.foundAt))}${r.cases != null ? ` · ${fmt(r.cases)} cases read` : ''}${r.problem ? ` · <em class="bad">${esc(r.problem)}</em>` : ''}</span></li>`).join('')
+    : '<li><span>No lists found yet.</span></li>';
+}
+loadWatch();
+setInterval(loadWatch, 60000);
 
 prepareEngine().catch(() => { engineReady = null; });
 refresh();

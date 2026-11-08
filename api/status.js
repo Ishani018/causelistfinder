@@ -13,6 +13,7 @@ module.exports = async (req, res) => {
       listsSeen: Object.keys(state.notices).length + Object.keys(state.archive).length,
       recent: recent.reverse().map(r => ({
         foundAt: r.foundAt, source: r.source, title: r.title || null, uploadedAt: r.uploadedAt || null,
+        type: r.type || null, side: r.side || null, hearingDate: r.hearingDate || null,
         cases: r.result && typeof r.result === 'object' ? r.result.cases : null, problem: r.problem || null,
       })),
     });
