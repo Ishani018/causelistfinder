@@ -21,6 +21,26 @@ npm run watch -- --archive    # one check that also probes the archive now
 npm run report                # summary of the last 7 days (add -- --days 14)
 ```
 
+### On Vercel (Mumbai)
+
+The project deploys from GitHub to https://causelistfinder.vercel.app, with its functions in Vercel's Mumbai region (`bom1`), which the court website answers. `api/watch.js` runs one check; `api/status.js` shows the last check and recent log; `api/probe.js` only tests access.
+
+One-time setup in the Vercel dashboard:
+
+1. **Storage:** Storage → Create → **Upstash for Redis** (free plan) → connect it to this project. That adds `KV_REST_API_URL` and `KV_REST_API_TOKEN`.
+2. **Secret:** Settings → Environment Variables → add `CRON_SECRET` with a long random value (for example the output of `openssl rand -hex 24`). Optionally add `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID`.
+3. **Redeploy** (Deployments → ⋯ → Redeploy) so the new variables take effect.
+4. **Schedule:** on the Hobby plan Vercel's own cron runs only once a day (it's set in `vercel.json` as a fallback). For every 5 minutes, create a free job at cron-job.org:
+   - URL `https://causelistfinder.vercel.app/api/watch`
+   - every 5 minutes
+   - header `Authorization: Bearer <your CRON_SECRET>`
+
+   On the Pro plan you can instead change the cron in `vercel.json` to `*/5 * * * *`.
+
+Check it's working at `https://causelistfinder.vercel.app/api/status`. Locally, `npm run report` reads the same Upstash log if `KV_REST_API_URL` and `KV_REST_API_TOKEN` are set in your shell.
+
+### Elsewhere
+
 **It must run from India.** The court website doesn't answer GitHub's own runners in the US: connections time out (tested twice on 8 Nov 2026, while the same requests worked from India). Options:
 
 - **This Mac:** `sh watcher/install-mac.sh` starts `--loop` in the background and restarts it at login. It only checks while the Mac is awake and online. Run it from a permanent folder, not a temporary one.

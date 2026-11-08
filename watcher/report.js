@@ -1,15 +1,13 @@
-// Summarises data/log.jsonl: what was published when, how fast we saw it, and every problem.
+// Summarises the watcher's log: what was published when, how fast we saw it, and every problem.
 //   node watcher/report.js [--days 7]
-const fs = require('fs');
-const path = require('path');
-
-const DATA = process.env.WATCH_DATA_DIR || path.join(__dirname, '..', 'data');
 const days = +(process.argv[process.argv.indexOf('--days') + 1] || 7) || 7;
 const since = Date.now() - days * 86400e3;
 
-let lines = [];
-try { lines = fs.readFileSync(path.join(DATA, 'log.jsonl'), 'utf8').split('\n').filter(Boolean).map(l => JSON.parse(l)); }
-catch { console.log('No log yet. Run: node watcher/watch.js'); process.exit(0); }
+(async () => {
+// Reads the Upstash log when KV_REST_API_URL / _TOKEN are set (the Vercel watcher), else data/log.jsonl.
+const { pickStore } = require('./store.js');
+const lines = await pickStore().recent(20000);
+if (!lines.length) { console.log('No log yet. Run: node watcher/watch.js'); return; }
 const recs = lines.filter(r => Date.parse(r.foundAt) >= since);
 
 const ist = iso => new Date(Date.parse(iso) + 5.5 * 3600e3).toISOString().slice(0, 16).replace('T', ' ');
@@ -47,3 +45,4 @@ if (problems.length) {
   console.log('\nProblems:');
   for (const r of problems) console.log(`  ${ist(r.foundAt)}  ${r.title || r.source}: ${r.problem}${r.url ? ' ' + r.url : ''}`);
 }
+})();

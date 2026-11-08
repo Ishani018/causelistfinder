@@ -4,28 +4,17 @@
 //   node watcher/watch.js           one check (for cron / GitHub Actions)
 //   node watcher/watch.js --loop    keep running: every 5 min 07:00–23:00 IST, every 30 min otherwise
 //   node watcher/watch.js --archive also probe the archive now, even if it was checked recently
+// On Vercel, api/watch.js calls runOnce() and the state and log live in Upstash Redis (watcher/store.js).
 const fs = require('fs');
 const path = require('path');
 
 const site = require('./court-site.js');
+const { pickStore } = require('./store.js');
 const { readList, unreadCaseNumbers } = require('../tools/read-list.js');
 
-const DATA = process.env.WATCH_DATA_DIR || path.join(__dirname, '..', 'data');
-const PDFS = path.join(DATA, 'pdfs');
-const STATE_FILE = path.join(DATA, 'state.json');
-const LOG_FILE = path.join(DATA, 'log.jsonl');
 const ARCHIVE_EVERY_MIN = 30;
 const KEEP_PDFS_DAYS = 30;
 const HEARTBEAT_AT = { h: 22, m: 30 };   // IST: by now tomorrow's Appellate Side daily list should be up
-
-fs.mkdirSync(PDFS, { recursive: true });
-
-function loadState() {
-  try { return JSON.parse(fs.readFileSync(STATE_FILE, 'utf8')); }
-  catch { return { notices: {}, archive: {}, heartbeats: {}, lastArchiveCheck: null, failures: 0 }; }
-}
-const saveState = s => fs.writeFileSync(STATE_FILE, JSON.stringify(s, null, 1));
-const log = rec => fs.appendFileSync(LOG_FILE, JSON.stringify(rec) + '\n');
 
 // Current IST wall-clock time as a Date whose UTC fields read as IST.
 const istNow = () => new Date(Date.now() + 5.5 * 3600e3);
@@ -46,16 +35,17 @@ async function tellOperator(text) {
 }
 
 // Download one list, read it with the page's parser, and check every printed case number is covered.
-async function processList(item) {
+async function processList(item, store) {
   const foundAt = new Date().toISOString();
   const rec = { foundAt, ...item, delayMin: item.uploadedAt ? Math.round((Date.parse(foundAt) - Date.parse(item.uploadedAt)) / 60000) : null };
   try {
     const { bytes, isPdf } = await site.download(item.url);
     if (!isPdf) { rec.problem = item.type === 'notice' ? null : 'not a PDF'; rec.result = 'not a PDF'; return rec; }
-    const file = path.join(PDFS, `${item.source}-${item.key.replace(/\.pdf$/i, '').replace(/[^\w.-]+/g, '_')}.pdf`);
+    const file = path.join(store.pdfDir, `${item.source}-${item.key.replace(/\.pdf$/i, '').replace(/[^\w.-]+/g, '_')}.pdf`);
     fs.writeFileSync(file, bytes);
     const t0 = Date.now();
     const list = await readList(file);
+    if (!store.keepPdfs) fs.unlinkSync(file);
     const unread = unreadCaseNumbers(list);
     rec.result = {
       pages: list.pages, cases: list.entries.length, ms: Date.now() - t0,
@@ -108,7 +98,7 @@ async function checkArchive(state, force) {
 }
 
 // Silence must never look like "nothing listed": say so when tomorrow's main list is late.
-async function heartbeat(state) {
+async function heartbeat(state, store) {
   const now = istNow();
   if (now.getUTCHours() * 60 + now.getUTCMinutes() < HEARTBEAT_AT.h * 60 + HEARTBEAT_AT.m) return;
   const target = isoDay(nextWorkingDay(now));
@@ -118,50 +108,65 @@ async function heartbeat(state) {
   state.heartbeats[target] = have ? 'ok' : 'missing';
   if (!have) {
     const msg = `no Appellate Side daily list for ${target} by ${HEARTBEAT_AT.h}:${HEARTBEAT_AT.m} IST (holiday or late upload?)`;
-    log({ foundAt: new Date().toISOString(), source: 'heartbeat', hearingDate: target, problem: msg });
+    await store.log({ foundAt: new Date().toISOString(), source: 'heartbeat', hearingDate: target, problem: msg });
     await tellOperator(msg);
+    return msg;
   }
 }
 
-function prunePdfs() {
+function prunePdfs(store) {
+  if (!store.keepPdfs) return;
   const cutoff = Date.now() - KEEP_PDFS_DAYS * 86400e3;
-  for (const f of fs.readdirSync(PDFS)) {
-    const p = path.join(PDFS, f);
+  for (const f of fs.readdirSync(store.pdfDir)) {
+    const p = path.join(store.pdfDir, f);
     if (fs.statSync(p).mtimeMs < cutoff) fs.unlinkSync(p);
   }
 }
 
-async function runOnce({ forceArchive = false } = {}) {
-  const state = loadState();
+// One check. Returns what it found, for api/watch.js and the console.
+async function runOnce({ forceArchive = false, store = pickStore() } = {}) {
+  if (!await store.lock()) return { skipped: 'another check is still running' };
+  try { return await check(store, forceArchive); } finally { await store.unlock(); }
+}
+
+async function check(store, forceArchive) {
+  const state = await store.loadState();
   const firstRun = !state.lastRun;   // the first run picks up a backlog; its delays mean nothing
+  const summary = { at: new Date().toISOString(), store: store.kind, found: [], problems: [] };
   let items = [];
   try {
     items = [...await checkNotices(state), ...await checkArchive(state, forceArchive)];
     state.failures = 0;
   } catch (e) {
     state.failures = (state.failures || 0) + 1;
-    const hint = /certificate|CERT|SIGNATURE/i.test(e.cause?.code || e.message) ? ' (the bundled GlobalSign intermediate may have expired; it is valid until May 2027)' : '';
-    log({ foundAt: new Date().toISOString(), source: 'fetch', problem: `court site unreachable: ${e.cause?.code || e.message}${hint}`, failures: state.failures });
-    if (state.failures === 3) await tellOperator(`court site unreachable 3 checks in a row: ${e.cause?.code || e.message}${hint}`);
-    saveState(state);
-    return;
+    const code = e.cause?.code || e.code || e.message;
+    const hint = /certificate|CERT|SIGNATURE/i.test(code) ? ' (the bundled GlobalSign intermediate may have expired; it is valid until May 2027)' : '';
+    const problem = `court site unreachable: ${code}${hint}`;
+    await store.log({ foundAt: new Date().toISOString(), source: 'fetch', problem, failures: state.failures });
+    if (state.failures === 3) await tellOperator(`court site unreachable 3 checks in a row: ${code}${hint}`);
+    await store.saveState(state);
+    summary.problems.push(problem);
+    return summary;
   }
   for (const item of items) {
-    const rec = await processList(item);
+    const rec = await processList(item, store);
     if (firstRun) rec.backfill = true;
-    log(rec);
-    const summary = rec.result && typeof rec.result === 'object' ? `${rec.result.cases} cases, ${rec.result.pages} pages` : rec.result || '';
-    console.log(`${item.source} ${item.key}: ${item.title} — ${summary}${rec.problem ? ' — PROBLEM: ' + rec.problem : ''}`);
-    if (rec.problem) await tellOperator(`${item.title}: ${rec.problem} (${item.url})`);
+    await store.log(rec);
+    const line = rec.result && typeof rec.result === 'object' ? `${rec.result.cases} cases, ${rec.result.pages} pages` : rec.result || '';
+    console.log(`${item.source} ${item.key}: ${item.title} — ${line}${rec.problem ? ' — PROBLEM: ' + rec.problem : ''}`);
+    summary.found.push({ title: item.title, cases: rec.result?.cases ?? null, problem: rec.problem || null });
+    if (rec.problem) { summary.problems.push(`${item.title}: ${rec.problem}`); await tellOperator(`${item.title}: ${rec.problem} (${item.url})`); }
     const keep = { type: item.type, side: item.side, hearingDate: item.hearingDate, uploadedAt: item.uploadedAt };
     if (item.source === 'notice') state.notices[item.key] = keep;
     else state.archive[item.url] = { ...keep, size: item.size };
   }
-  await heartbeat(state);
-  prunePdfs();
+  const late = await heartbeat(state, store);
+  if (late) summary.problems.push(late);
+  prunePdfs(store);
   state.lastRun = new Date().toISOString();
-  saveState(state);
+  await store.saveState(state);
   console.log(`checked at ${istNow().toISOString().slice(0, 16).replace('T', ' ')} IST: ${items.length} new`);
+  return summary;
 }
 
 async function loop() {
