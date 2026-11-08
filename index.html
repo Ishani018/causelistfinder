@@ -210,6 +210,18 @@ body.has-cases .hero p { display: none; }
 .byname li { display: flex; justify-content: space-between; gap: 12px; padding: 7px 0; border-top: 1px solid var(--rule); font-size: 14px; }
 .byname .mono { font-weight: 500; }
 
+/* Check a day's lists straight from the court website (hosted site only) */
+.days { display: flex; flex-wrap: wrap; gap: 8px; }
+.day-btn { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; min-width: 112px; padding: 9px 14px; border: 1px solid var(--rule); border-radius: 10px; background: var(--sunk); cursor: pointer; text-align: left; }
+.day-btn b { font-size: 14px; }
+.day-btn span { font-size: 12px; color: var(--muted); }
+.day-btn:hover { border-color: var(--accent); }
+.day-btn[aria-pressed="true"] { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--panel)); }
+.day-btn[aria-pressed="true"] b { color: var(--accent); }
+.day-other { display: flex; align-items: center; gap: 8px; padding: 0 10px; border: 1px dashed var(--rule); border-radius: 10px; font-size: 13px; color: var(--muted); }
+.day-other input { border: 0; background: transparent; font: 500 13px var(--f-body); color: var(--ink); min-height: 40px; }
+.or { display: flex; align-items: center; gap: 12px; font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--faint); }
+.or::before, .or::after { content: ""; flex: 1; height: 1px; background: var(--rule); }
 /* Court website watch (shown on the hosted site, where /api/status exists) */
 .watch-head { display: flex; align-items: center; gap: 8px; padding: 16px 18px 0; }
 .watch-head h2 { margin: 0; font-size: 15px; font-weight: 700; }
@@ -270,6 +282,15 @@ footer { margin-top: 28px; font-size: 13px; color: var(--muted); display: flex; 
     </aside>
 
     <main class="main">
+      <section class="panel" id="daypick" aria-labelledby="daypick-title" hidden>
+        <div class="panel-head"><h2 id="daypick-title">Check the court's lists</h2></div>
+        <div class="panel-body">
+          <div class="days" id="days"></div>
+          <p class="hint">Fetched from the Calcutta High Court website: every bench's daily list, plus the supplementary lists posted for that day. Your case numbers are used for this check only and are not stored.</p>
+          <p class="note-line warn" id="dayNote" hidden></p>
+        </div>
+      </section>
+      <div class="or" id="orUpload" hidden>or upload a PDF</div>
       <ul class="lists" id="lists"></ul>
       <div class="panel progress" id="progress" hidden><span class="hint" id="progressText"></span><div class="bar"><i id="barFill"></i></div></div>
       <label class="drop" id="drop">
@@ -532,6 +553,8 @@ const CHEV = '<svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill=
 
 let index = null, results = EXAMPLE, showingExample = true;
 let lists = [], nextListId = 1;
+let remote = null;     // { date, lists, results, casesKey } when checking a day straight from the court website
+const activeLists = () => remote ? remote.lists : lists;
 let cases = load();
 let lastGroups = null;
 
@@ -678,7 +701,7 @@ function render() {
   const groups = group(results);
   lastGroups = groups;
   drawCases();
-  if (!showingExample && !index) { box.innerHTML = ''; return; }
+  if (!showingExample && !index && !remote) { box.innerHTML = ''; return; }
   const { listed, check, missing, names } = groups;
   const n = new Set(listed.map(x => x.label)).size;
   const missingCases = missing.filter(m => normaliseCase(m)).length;
@@ -690,7 +713,7 @@ function render() {
       ${check.length ? `<span class="stat warn"><b>${check.length}</b><span>to check</span></span>` : ''}
       <span class="stat"><b>${missing.length}</b><span>not listed</span></span>
     </div>
-    <span class="meta">${lists.length ? `Checked <b>${lists.map(l => esc(l.label)).join('</b>, <b>')}</b>` : 'Checked <b>Monthly · Mon 5 Oct 2026</b>'}</span>
+    <span class="meta">${activeLists().length ? `Checked <b>${activeLists().map(l => esc(l.label)).join('</b>, <b>')}</b>` : 'Checked <b>Monthly · Mon 5 Oct 2026</b>'}</span>
     <button class="btn" id="copy" type="button">Copy for WhatsApp</button>
   </div>
   <p class="note-line" id="copyNote" hidden></p>`;
@@ -702,16 +725,21 @@ function render() {
       return `<section class="panel day"><div class="day-head"><h3>${esc(title)}</h3><span>${rows.length} listing${rows.length > 1 ? 's' : ''}, by court</span></div>${rows.map(rowHTML).join('')}</section>`;
     }).join('');
   } else if (!names.length) {
-    html += `<div class="panel" style="padding:22px 18px"><b>None of your cases are in ${lists.length > 1 ? 'these lists' : 'this list'}.</b><p class="hint" style="margin-top:4px">If a supplementary list comes out later, add it above.</p></div>`;
+    html += `<div class="panel" style="padding:22px 18px"><b>None of your cases are in ${activeLists().length > 1 ? 'these lists' : 'this list'}.</b><p class="hint" style="margin-top:4px">If a supplementary list comes out later, add it above.</p></div>`;
   }
   if (check.length) html += `<h3 class="section-title"><i style="background:var(--warn)"></i>Please check</h3><div class="panel checks">${check.map(c => `<div><span class="case">${esc(c.label)}</span><p>${esc(c.why)}</p></div>`).join('')}</div>`;
   if (names.length) html += `<h3 class="section-title"><i style="background:var(--ok)"></i>By name</h3>${names.map(nm => `<details class="panel fold"><summary><span class="case">${esc(nm.label)}</span><span class="hint">${fmt(nm.hits.length)} matter${nm.hits.length > 1 ? 's' : ''} listed</span>${CHEV}</summary><ul class="byname">${nm.hits.map(e => `<li><span class="mono">${esc(e.caseNo)}</span><span class="num">${isWarning(e) ? 'Warning list' : `Court ${esc(e.court)} · Item ${esc(e.serial)}`}</span></li>`).join('')}</ul></details>`).join('')}`;
-  if (missing.length) html += `<details class="panel fold"><summary><i style="width:9px;height:9px;border-radius:50%;background:var(--faint)"></i>${missing.length} not in ${lists.length > 1 ? 'these lists' : 'this list'}${CHEV}</summary><ul class="chips">${missing.map(m => `<li>${esc(m)}</li>`).join('')}</ul></details>`;
+  if (missing.length) html += `<details class="panel fold"><summary><i style="width:9px;height:9px;border-radius:50%;background:var(--faint)"></i>${missing.length} not in ${activeLists().length > 1 ? 'these lists' : 'this list'}${CHEV}</summary><ul class="chips">${missing.map(m => `<li>${esc(m)}</li>`).join('')}</ul></details>`;
   box.innerHTML = html;
   if (!showingExample && index) rememberSeen(listed);
 }
 
 function refresh() {
+  if (remote) {
+    showingExample = false;
+    if (remote.casesKey !== cases.join('|')) return checkDay(remote.date);   // cases changed: check again
+    results = remote.results; render(); return;
+  }
   if (index) { results = search(index, cases); showingExample = false; }
   else { showingExample = !cases.length; results = showingExample ? EXAMPLE : []; }
   render();
@@ -719,7 +747,7 @@ function refresh() {
 
 function messageText() {
   const { listed, check, missing, names } = group(results);
-  const out = [`Cause list check${lists.length ? ' – ' + lists.map(l => l.label).join(', ') : ''}${showingExample ? ' (example)' : ''}`];
+  const out = [`Cause list check${activeLists().length ? ' – ' + activeLists().map(l => l.label).join(', ') : ''}${showingExample ? ' (example)' : ''}`];
   let lastDate = null, n = 0;
   for (const x of listed) {
     if (x.e.dateKey !== lastDate) { lastDate = x.e.dateKey; out.push('', `LISTED ${(x.e.dateShort || '').toUpperCase()}:`.replace(/ :$/, ':')); }
@@ -773,13 +801,15 @@ function rebuildIndex() {
 }
 
 function drawLists() {
-  $('lists').innerHTML = lists.map(l => `<li><span class="k ${l.kind}">${esc(KIND_NAME[l.kind])}</span><span><b>${esc(l.label.split(' · ')[1] || l.label)}</b> <small>· ${fmt(l.entries.length)} cases · ${fmt(l.pages)} pages</small></span><button type="button" data-drop="${l.id}" aria-label="Remove ${esc(l.label)}">×</button></li>`).join('');
-  $('lists').hidden = !lists.length;
+  const all = activeLists();
+  $('lists').innerHTML = all.map(l => `<li><span class="k ${l.kind}">${esc(KIND_NAME[l.kind] || 'List')}</span><span><b>${esc(l.label.split(' · ').slice(1).join(' · ') || l.label)}</b> <small>· ${fmt(l.count ?? l.entries.length)} cases · ${fmt(l.pages)} pages</small></span><button type="button" data-drop="${remote ? 'remote' : l.id}" aria-label="Remove ${esc(l.label)}">×</button></li>`).join('');
+  $('lists').hidden = !all.length;
   $('drop').classList.toggle('compact', lists.length > 0);
   $('dropTitle').textContent = lists.length ? 'Add another list' : 'Upload the cause list PDF';
   $('dropHint').textContent = lists.length ? 'For example the supplementary list, when it comes out.' : 'Daily, supplementary or monthly. Drop it anywhere on this page.';
   $('dropBtn').textContent = lists.length ? 'Add PDF' : 'Choose PDF';
-  $('suppTip').hidden = !lists.some(l => l.kind === 'daily') || lists.some(l => l.kind === 'supplementary');
+  $('suppTip').hidden = !!remote || !lists.some(l => l.kind === 'daily') || lists.some(l => l.kind === 'supplementary');
+  drawDays();
 }
 
 function showError(msg) { $('uploadError').textContent = msg; $('uploadError').hidden = !msg; }
@@ -823,6 +853,7 @@ async function loadFiles(files) {
         e.src = label; e.kind = kind; e.dateKey = kind === 'monthly' ? `~monthly ${ed.key}` : ed.key;   // '~' sorts monthly after dated lists
         e.dateShort = kind === 'monthly' ? `Monthly list from ${ed.short}` : ed.short;
       }
+      remote = null;
       lists = lists.filter(l => !(l.label === label && l.pages === pages));   // same list uploaded twice
       lists.push({ id: nextListId++, name: file.name, label, kind, entries, raw, pages });
       added = true;
@@ -849,7 +880,8 @@ window.addEventListener('dragleave', e => { if (!hasFiles(e)) return; if (--drag
 window.addEventListener('drop', e => { if (!hasFiles(e)) return; e.preventDefault(); dragDepth = 0; $('overlay').hidden = true; loadFiles(e.dataTransfer.files); });
 $('lists').addEventListener('click', e => {
   const b = e.target.closest('[data-drop]'); if (!b) return;
-  lists = lists.filter(l => l.id !== +b.dataset.drop);
+  if (b.dataset.drop === 'remote') remote = null;
+  else lists = lists.filter(l => l.id !== +b.dataset.drop);
   drawLists(); rebuildIndex(); refresh();
 });
 
@@ -902,6 +934,7 @@ async function loadWatch() {
     d = await res.json();
   } catch { return; }   // not on the hosted site (or watcher not set up): keep the box hidden
   $('watch').hidden = false;
+  if ($('daypick').hidden) { $('daypick').hidden = false; $('orUpload').hidden = false; drawDays(); }
   const stale = !d.lastCheck || Date.now() - Date.parse(d.lastCheck) > 20 * 60000 || d.consecutiveFailures > 0;
   $('watchDot').classList.toggle('stale', stale);
   $('watchWhen').textContent = d.lastCheck ? `Checked ${ago(d.lastCheck)}` : 'Not checked yet';
@@ -920,6 +953,51 @@ async function loadWatch() {
 }
 loadWatch();
 setInterval(loadWatch, 60000);
+
+// Yesterday / Today / Tomorrow (IST), or any date: fetch that day's lists on the server and match the saved cases.
+const istDay = (offset = 0) => new Date(Date.now() + 5.5 * 3600e3 + offset * 86400e3).toISOString().slice(0, 10);
+const dayLabel = iso => new Date(iso + 'T00:00:00Z').toLocaleDateString('en-IN', { timeZone: 'UTC', weekday: 'short', day: 'numeric', month: 'short' });
+let checking = false;
+function drawDays() {
+  if ($('daypick').hidden) return;
+  const active = remote?.date;
+  const btn = (name, iso) => `<button class="day-btn" type="button" data-day="${iso}" aria-pressed="${active === iso}"><b>${name}</b><span>${esc(dayLabel(iso))}</span></button>`;
+  const quick = [istDay(-1), istDay(0), istDay(1)];
+  $('days').innerHTML = btn('Yesterday', quick[0]) + btn('Today', quick[1]) + btn('Tomorrow', quick[2])
+    + `<label class="day-other">Other day <input type="date" id="dayInput" value="${active && !quick.includes(active) ? active : ''}" aria-label="Check another date"></label>`;
+}
+function dayNote(msg) { $('dayNote').textContent = msg || ''; $('dayNote').hidden = !msg; }
+async function checkDay(date) {
+  if (checking) return;
+  if (!cases.length) { dayNote('Add your case numbers first (My cases), then pick a day.'); $('newCase').focus(); return; }
+  checking = true; dayNote('');
+  $('progress').hidden = false; $('barFill').style.width = '35%';
+  $('progressText').textContent = `Fetching the court's lists for ${dayLabel(date)}… (about 10 seconds the first time)`;
+  try {
+    const res = await fetch('/api/check', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ date, cases }) });
+    const d = await res.json();
+    if (!res.ok) throw new Error(d.error || `HTTP ${res.status}`);
+    $('barFill').style.width = '100%';
+    if (!d.lists.length) {
+      remote = null;
+      dayNote(date > istDay(0) ? `The court hasn't published a list for ${dayLabel(date)} yet. Daily lists usually go up around 9 pm the evening before.`
+        : `No cause list on the court website for ${dayLabel(date)} (a holiday or weekend?).`);
+    } else {
+      lists = []; index = null;
+      remote = { date, lists: d.lists, results: d.results, casesKey: cases.join('|') };
+      if (d.problems.length) dayNote(`Some lists couldn't be read: ${d.problems.length}. The rest are shown.`);
+    }
+  } catch (e) {
+    dayNote(`Couldn't check right now (${e.message}). Try again in a minute, or upload the PDF below.`);
+  } finally {
+    checking = false; $('progress').hidden = true;
+  }
+  drawLists();
+  if (remote) { results = remote.results; showingExample = false; render(); $('results').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' }); }
+  else refresh();
+}
+$('days').addEventListener('click', e => { const b = e.target.closest('[data-day]'); if (b) checkDay(b.dataset.day); });
+$('days').addEventListener('change', e => { if (e.target.id === 'dayInput' && e.target.value) checkDay(e.target.value); });
 
 prepareEngine().catch(() => { engineReady = null; });
 refresh();
