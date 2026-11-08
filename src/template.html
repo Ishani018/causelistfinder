@@ -240,11 +240,15 @@ body.has-cases .hero p { display: none; }
 .more-cases { background: none; border: 0; padding: 8px 0 0; color: var(--accent); font: 600 13px var(--f-body); cursor: pointer; text-align: left; }
 @media (prefers-reduced-motion: reduce) { .spin, .running i { animation-duration: 3s; } }
 /* Court website watch (shown on the hosted site, where /api/status exists) */
-.watch-head { display: flex; align-items: center; gap: 8px; padding: 16px 18px 0; }
+.watch-head { display: flex; align-items: center; gap: 8px; padding: 16px 18px; list-style: none; cursor: pointer; }
+.watch-head::-webkit-details-marker { display: none; }
+.watch[open] .watch-head { padding-bottom: 0; }
+.watch[open] .watch-head .chev { transform: rotate(180deg); }
+.watch-head .chev { flex: none; }
 .watch-head h2 { margin: 0; font-size: 15px; font-weight: 700; }
 .live { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 0 3px var(--ok-soft); flex: none; }
 .live.stale { background: var(--warn); box-shadow: 0 0 0 3px var(--warn-soft); }
-.watch-when { margin-left: auto; font-size: 12px; color: var(--muted); white-space: nowrap; }
+.watch-when { margin-left: auto; margin-right: 4px; font-size: 12px; color: var(--muted); white-space: nowrap; }
 .watch-list { list-style: none; margin: 0; padding: 0; }
 .watch-list li { display: flex; flex-direction: column; gap: 2px; padding: 9px 0; border-bottom: 1px solid var(--rule); font-size: 13px; }
 .watch-list li:last-child { border-bottom: 0; }
@@ -264,6 +268,36 @@ footer { margin-top: 28px; font-size: 13px; color: var(--muted); display: flex; 
 /* Drop anywhere */
 .dropzone-overlay { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; background: color-mix(in srgb, var(--bg) 82%, transparent); backdrop-filter: blur(2px); }
 .dropzone-overlay div { border: 2px dashed var(--accent); border-radius: 16px; padding: 36px 44px; background: var(--panel); font: 600 22px var(--f-display); color: var(--accent); }
+/* Phones: one calm column */
+@media (max-width: 560px) {
+  .top-in { padding-block: 10px; }
+  .court { display: none; }
+  .hero { padding-block: 16px 12px; }
+  .hero h1 { font-size: 26px; margin: 0; }
+  .hero p { display: none; }
+  .wrap { padding-left: max(14px, env(safe-area-inset-left, 0px)); padding-right: max(14px, env(safe-area-inset-right, 0px)); }
+  .grid, .main, .side { gap: 12px; }
+  .checker { padding: 16px; gap: 12px; }
+  .checker h2 { font-size: 21px; }
+  .checker .sub { display: none; }
+  .seg { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 3px; padding: 3px; }
+  .seg button, .seg label { min-height: 50px; padding: 4px 2px; }
+  .seg b { font-size: 13px; }
+  .seg span { font-size: 11px; }
+  .sides { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0 -16px; padding: 0 16px; }
+  .sides::-webkit-scrollbar { display: none; }
+  .sides button { flex: none; padding: 5px 10px; font-size: 12px; }
+  .btn.big { min-height: 50px; font-size: 15px; }
+  .fine .privacy { display: none; }
+  .panel-head { padding: 14px 16px 0; }
+  .panel-body { padding: 12px 16px 16px; }
+  .watch-head { padding: 14px 16px; }
+  .how { padding: 16px; }
+  .how li span { font-size: 13px; }
+  .summary { padding: 14px 16px; }
+  .summary .btn { width: 100%; margin-left: 0; }
+  footer { margin-top: 18px; font-size: 12px; }
+}
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
 
@@ -297,13 +331,13 @@ footer { margin-top: 28px; font-size: 13px; color: var(--muted); display: flex; 
           <button class="linkbtn" id="clearAll" type="button" hidden>Remove all</button>
         </div>
       </section>
-      <section class="panel" id="watch" aria-labelledby="watch-title" hidden>
-        <div class="watch-head"><span class="live" id="watchDot" aria-hidden="true"></span><h2 id="watch-title">Court website watch</h2><span class="watch-when" id="watchWhen"></span></div>
+      <details class="panel watch" id="watch" hidden>
+        <summary class="watch-head"><span class="live" id="watchDot" aria-hidden="true"></span><h2>Court website watch</h2><span class="watch-when" id="watchWhen"></span><svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></summary>
         <div class="panel-body">
           <p class="hint" id="watchNote">Checks the Calcutta High Court website every 5 minutes for new cause lists.</p>
           <ul class="watch-list" id="watchList"></ul>
         </div>
-      </section>
+      </details>
     </aside>
 
     <main class="main">
@@ -317,7 +351,7 @@ footer { margin-top: 28px; font-size: 13px; color: var(--muted); display: flex; 
         <button class="btn big" id="checkBtn" type="button">Check my cases</button>
         <div class="running" id="running" hidden><i></i></div>
         <p class="note-line warn" id="dayNote" hidden></p>
-        <p class="fine"><span>Your case numbers are used for this check only, never stored.</span><button class="linkbtn" id="uploadLink" type="button">Have the PDF? Upload it instead</button></p>
+        <p class="fine"><span class="privacy">Your case numbers are used for this check only, never stored.</span><button class="linkbtn" id="uploadLink" type="button">Have the PDF? Upload it instead</button></p>
       </section>
       <ul class="lists" id="lists"></ul>
       <div class="panel progress" id="progress" hidden><span class="hint" id="progressText"></span><div class="bar"><i id="barFill"></i></div></div>
@@ -330,9 +364,9 @@ footer { margin-top: 28px; font-size: 13px; color: var(--muted); display: flex; 
       <p class="note-line err" id="uploadError" hidden></p>
       <p class="note-line warn" id="suppTip" hidden>Supplementary lists usually come out on the hearing day, between 10 am and 3 pm, and are taken up first. Add them here when they appear.</p>
       <section id="results" aria-live="polite" class="main"></section>
-      <footer><span>The PDF is read on this device. Nothing is uploaded.</span><span>Always confirm against the official list.</span></footer>
     </main>
   </div>
+  <footer><span>Case numbers stay on your device; a check sends them once and nothing is stored.</span><span>Always confirm against the official list.</span></footer>
 </div>
 <div class="dropzone-overlay" id="overlay" hidden><div>Drop the cause list PDF</div></div>
 
@@ -508,7 +542,7 @@ function render() {
   const groups = group(results);
   lastGroups = groups;
   drawCases();
-  if (!showingExample && !index && !remote) { box.innerHTML = HOW_IT_WORKS; return; }
+  if (!showingExample && !index && !remote) { box.innerHTML = cases.length ? '' : HOW_IT_WORKS; return; }
   const { listed, check, missing, names } = groups;
   const n = new Set(listed.map(x => x.label)).size;
   const missingCases = missing.filter(m => normaliseCase(m)).length;
@@ -751,6 +785,7 @@ async function loadWatch() {
     if (!res.ok) throw new Error();
     d = await res.json();
   } catch { $('drop').hidden = false; return; }   // not on the hosted site: PDF upload is the way in
+  if ($('watch').hidden) $('watch').open = matchMedia('(min-width: 901px)').matches;
   $('watch').hidden = false;
   if ($('daypick').hidden) { $('daypick').hidden = false; if (!lists.length) $('drop').hidden = true; drawDays(); }
   const stale = !d.lastCheck || Date.now() - Date.parse(d.lastCheck) > 20 * 60000 || d.consecutiveFailures > 0;
@@ -777,7 +812,7 @@ const istDay = (offset = 0) => new Date(Date.now() + 5.5 * 3600e3 + offset * 864
 const dayLabel = iso => new Date(iso + 'T00:00:00Z').toLocaleDateString('en-IN', { timeZone: 'UTC', weekday: 'short', day: 'numeric', month: 'short' });
 let checking = false;
 // Which benches to check; remembered on this device. Appellate Side by default.
-const SIDES = [['appellate', 'Appellate Side'], ['original', 'Original Side'], ['jalpaiguri', 'Jalpaiguri'], ['portblair', 'Port Blair']];
+const SIDES = [['appellate', 'Appellate'], ['original', 'Original'], ['jalpaiguri', 'Jalpaiguri'], ['portblair', 'Port Blair']];
 let sides = (() => { try { const v = JSON.parse(localStorage.getItem('clf.sides') || 'null'); if (Array.isArray(v) && v.length) return v; } catch {} return ['appellate']; })();
 const checkKey = () => cases.join('|') + '#' + sides.join(',');
 function drawSides() {
@@ -790,7 +825,7 @@ function drawDays() {
   const quick = [['Yesterday', istDay(-1)], ['Today', istDay(0)], ['Tomorrow', istDay(1)]];
   const other = !quick.some(([, iso]) => iso === selectedDay);
   $('days').innerHTML = quick.map(([name, iso]) => `<button type="button" role="radio" data-day="${iso}" aria-checked="${selectedDay === iso}"><b>${name}</b><span>${esc(dayLabel(iso))}</span></button>`).join('')
-    + `<label role="radio" aria-checked="${other}"><b>${other ? esc(dayLabel(selectedDay)) : 'Other day'}</b><span>${other ? 'Change date' : 'Pick a date'}</span><input type="date" id="dayInput" value="${selectedDay}" aria-label="Pick another date"></label>`;
+    + `<label role="radio" aria-checked="${other}"><b>${other ? esc(dayLabel(selectedDay).replace(/^\w+, /, '')) : 'Date'}</b><span>${other ? 'Change' : 'Pick one'}</span><input type="date" id="dayInput" value="${selectedDay}" aria-label="Pick another date"></label>`;
   drawSides();
   drawCheckButton();
 }
