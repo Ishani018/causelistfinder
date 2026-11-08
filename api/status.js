@@ -16,6 +16,8 @@ module.exports = async (req, res) => {
       })),
     });
   } catch (e) {
-    res.status(503).json({ error: e.message });
+    // Names only, never values: enough to see whether storage and the secret reached this deployment.
+    const names = Object.keys(process.env).filter(k => /KV|REDIS|UPSTASH|CRON|TELEGRAM/.test(k)).sort();
+    res.status(503).json({ error: e.message, environment: process.env.VERCEL_ENV || null, deployment: process.env.VERCEL_URL || null, settingsSeen: names });
   }
 };
