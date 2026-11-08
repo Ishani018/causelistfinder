@@ -207,17 +207,31 @@ body.has-cases .hero p { display: none; }
 .byname .mono { font-weight: 500; }
 
 /* Check a day's lists straight from the court website (hosted site only) */
-.days { display: flex; flex-wrap: wrap; gap: 8px; }
-.day-btn { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; min-width: 112px; padding: 9px 14px; border: 1px solid var(--rule); border-radius: 10px; background: var(--sunk); cursor: pointer; text-align: left; }
-.day-btn b { font-size: 14px; }
-.day-btn span { font-size: 12px; color: var(--muted); }
-.day-btn:hover { border-color: var(--accent); }
-.day-btn[aria-pressed="true"] { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--panel)); }
-.day-btn[aria-pressed="true"] b { color: var(--accent); }
-.day-other { display: flex; align-items: center; gap: 8px; padding: 0 10px; border: 1px dashed var(--rule); border-radius: 10px; font-size: 13px; color: var(--muted); }
-.day-other input { border: 0; background: transparent; font: 500 13px var(--f-body); color: var(--ink); min-height: 40px; }
-.or { display: flex; align-items: center; gap: 12px; font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--faint); }
-.or::before, .or::after { content: ""; flex: 1; height: 1px; background: var(--rule); }
+.checker { padding: 22px; display: flex; flex-direction: column; gap: 16px; }
+.checker h2 { margin: 0; font: 600 24px/1.15 var(--f-display); letter-spacing: -.01em; }
+.checker .sub { margin: 4px 0 0; font-size: 14px; color: var(--muted); }
+.checker .sub b { color: var(--ink); font-weight: 600; }
+.seg { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; padding: 5px; background: var(--sunk); border: 1px solid var(--rule); border-radius: 12px; }
+.seg button, .seg label { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; min-height: 58px; padding: 6px 8px; border: 1px solid transparent; border-radius: 9px; background: none; cursor: pointer; text-align: center; position: relative; }
+.seg b { font-size: 15px; font-weight: 600; }
+.seg span { font-size: 12px; color: var(--muted); }
+.seg button:hover, .seg label:hover { background: var(--panel); }
+.seg [aria-checked="true"] { background: var(--panel); border-color: var(--accent); box-shadow: var(--shadow); }
+.seg [aria-checked="true"] b { color: var(--accent); }
+.seg label input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; }
+.seg label input::-webkit-calendar-picker-indicator { position: absolute; inset: 0; width: 100%; height: 100%; cursor: pointer; }
+@media (max-width: 560px) { .seg { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.btn.big { width: 100%; min-height: 54px; font-size: 16px; border-radius: 11px; }
+.btn.big[disabled] { cursor: progress; filter: none; opacity: .85; }
+.spin { width: 18px; height: 18px; border-radius: 50%; border: 2px solid currentColor; border-right-color: transparent; animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.running { height: 4px; border-radius: 2px; background: var(--rule); overflow: hidden; }
+.running i { display: block; height: 100%; width: 35%; background: var(--accent); border-radius: 2px; animation: run 1.4s ease-in-out infinite; }
+@keyframes run { from { transform: translateX(-100%); } to { transform: translateX(290%); } }
+.fine { margin: 0; font-size: 13px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 4px 14px; justify-content: space-between; }
+.fine .linkbtn { color: var(--accent); font-size: 13px; }
+.more-cases { background: none; border: 0; padding: 8px 0 0; color: var(--accent); font: 600 13px var(--f-body); cursor: pointer; text-align: left; }
+@media (prefers-reduced-motion: reduce) { .spin, .running i { animation-duration: 3s; } }
 /* Court website watch (shown on the hosted site, where /api/status exists) */
 .watch-head { display: flex; align-items: center; gap: 8px; padding: 16px 18px 0; }
 .watch-head h2 { margin: 0; font-size: 15px; font-weight: 700; }
@@ -265,6 +279,7 @@ footer { margin-top: 28px; font-size: 13px; color: var(--muted); display: flex; 
           <input class="field filter" id="filter" aria-label="Find in my cases" placeholder="Find in my cases" hidden>
           <div class="empty-cases" id="emptyCases">No cases yet. Add the case numbers you appear in, e.g. <span class="mono">MAT/1451/2026</span>.</div>
           <ul class="caselist" id="mycases"></ul>
+          <button class="more-cases" id="moreCases" type="button" hidden></button>
           <button class="linkbtn" id="clearAll" type="button" hidden>Remove all</button>
         </div>
       </section>
@@ -278,15 +293,17 @@ footer { margin-top: 28px; font-size: 13px; color: var(--muted); display: flex; 
     </aside>
 
     <main class="main">
-      <section class="panel" id="daypick" aria-labelledby="daypick-title" hidden>
-        <div class="panel-head"><h2 id="daypick-title">Check the court's lists</h2></div>
-        <div class="panel-body">
-          <div class="days" id="days"></div>
-          <p class="hint">Fetched from the Calcutta High Court website: every bench's daily list, plus the supplementary lists posted for that day. Your case numbers are used for this check only and are not stored.</p>
-          <p class="note-line warn" id="dayNote" hidden></p>
+      <section class="panel checker" id="daypick" aria-labelledby="daypick-title" hidden>
+        <div>
+          <h2 id="daypick-title">Check the cause list</h2>
+          <p class="sub">Live from the Calcutta High Court website: <b>every bench</b> and the <b>supplementary lists</b> for the day.</p>
         </div>
+        <div class="seg" id="days" role="radiogroup" aria-label="Hearing day"></div>
+        <button class="btn big" id="checkBtn" type="button">Check my cases</button>
+        <div class="running" id="running" hidden><i></i></div>
+        <p class="note-line warn" id="dayNote" hidden></p>
+        <p class="fine"><span>Your case numbers are used for this check only, never stored.</span><button class="linkbtn" id="uploadLink" type="button">Have the PDF? Upload it instead</button></p>
       </section>
-      <div class="or" id="orUpload" hidden>or upload a PDF</div>
       <ul class="lists" id="lists"></ul>
       <div class="panel progress" id="progress" hidden><span class="hint" id="progressText"></span><div class="bar"><i id="barFill"></i></div></div>
       <label class="drop" id="drop">
@@ -322,6 +339,8 @@ let remote = null;     // { date, lists, results, casesKey } when checking a day
 const activeLists = () => remote ? remote.lists : lists;
 let cases = load();
 let lastGroups = null;
+const FOLD_AT = 6;
+let casesOpen = false;
 
 // Cases seen at earlier checks, per hearing date, so new listings can be marked. Snapshot taken once per visit.
 const SEEN_KEY = 'clf.seen';
@@ -370,7 +389,7 @@ function addCases(text) {
   // Split commas only when every piece is a case of its own ("WPA/1/2025, WPA/2/2025"), not "MAT/812/2026, CAN No. 1 of 2026".
   const parts = text.split(/[\n;]+/).flatMap(line => {
     const bits = line.split(',').map(s => s.trim()).filter(Boolean);
-    return bits.length > 1 && bits.every(b => { const n = parseOne(b); return n && n.type !== 'CAN'; }) ? bits : [line.trim()];
+    return bits.length > 1 && bits.every(b => { const n = normaliseCase(b); return n && !/^CAN/.test(n.type); }) ? bits : [line.trim()];
   }).filter(s => s.length >= 3);
   for (const p of parts) { const t = tidy(p); if (!cases.includes(t)) cases.unshift(t); }
   save(); refresh();
@@ -380,7 +399,6 @@ function addCases(text) {
 function drawCases() {
   $('count').textContent = cases.length ? `${cases.length} saved` : '';
   $('emptyCases').hidden = cases.length > 0;
-  $('clearAll').hidden = cases.length < 3;
   $('filter').hidden = cases.length < 10;
   document.body.classList.toggle('has-cases', cases.length > 0);
   const q = $('filter').value.trim().toUpperCase().replace(/\s+/g, '');
@@ -390,8 +408,16 @@ function drawCases() {
     lastGroups.names.forEach(x => state[x.label] = 'on');
     lastGroups.check.forEach(x => state[x.label] = 'chk');
   }
-  $('mycases').innerHTML = cases.map((c, i) => (!q || c.replace(/\s+/g, '').includes(q))
-    ? `<li class="${state[c] || ''}"><span class="dot" aria-hidden="true"></span><span class="c">${esc(c)}</span><button type="button" data-del="${i}" aria-label="Remove ${esc(c)}">×</button></li>` : '').join('');
+  // Long lists fold to the first few (listed ones first) until "Show all".
+  const shown = cases.map((c, i) => ({ c, i })).filter(({ c }) => !q || c.replace(/\s+/g, '').includes(q))
+    .sort((a, b) => (state[b.c] === 'on') - (state[a.c] === 'on') || (state[b.c] === 'chk') - (state[a.c] === 'chk'));
+  const folded = !q && !casesOpen && shown.length > FOLD_AT;
+  $('mycases').innerHTML = (folded ? shown.slice(0, FOLD_AT) : shown).map(({ c, i }) =>
+    `<li class="${state[c] || ''}"><span class="dot" aria-hidden="true"></span><span class="c">${esc(c)}</span><button type="button" data-del="${i}" aria-label="Remove ${esc(c)}">×</button></li>`).join('');
+  $('moreCases').hidden = q || shown.length <= FOLD_AT;
+  $('moreCases').textContent = folded ? `Show all ${cases.length} cases` : 'Show fewer';
+  $('clearAll').hidden = cases.length < 3 || folded;
+  if (typeof drawCheckButton === 'function') drawCheckButton();
 }
 
 const isWarning = e => /WARNING/i.test(e.list || '');
@@ -699,7 +725,7 @@ async function loadWatch() {
     d = await res.json();
   } catch { return; }   // not on the hosted site (or watcher not set up): keep the box hidden
   $('watch').hidden = false;
-  if ($('daypick').hidden) { $('daypick').hidden = false; $('orUpload').hidden = false; drawDays(); }
+  if ($('daypick').hidden) { $('daypick').hidden = false; if (!lists.length) $('drop').hidden = true; drawDays(); }
   const stale = !d.lastCheck || Date.now() - Date.parse(d.lastCheck) > 20 * 60000 || d.consecutiveFailures > 0;
   $('watchDot').classList.toggle('stale', stale);
   $('watchWhen').textContent = d.lastCheck ? `Checked ${ago(d.lastCheck)}` : 'Not checked yet';
@@ -723,21 +749,31 @@ setInterval(loadWatch, 60000);
 const istDay = (offset = 0) => new Date(Date.now() + 5.5 * 3600e3 + offset * 86400e3).toISOString().slice(0, 10);
 const dayLabel = iso => new Date(iso + 'T00:00:00Z').toLocaleDateString('en-IN', { timeZone: 'UTC', weekday: 'short', day: 'numeric', month: 'short' });
 let checking = false;
+// Default day: tomorrow once the evening list is usually out (after 6 pm IST), otherwise today.
+let selectedDay = new Date(Date.now() + 5.5 * 3600e3).getUTCHours() >= 18 ? istDay(1) : istDay(0);
 function drawDays() {
   if ($('daypick').hidden) return;
-  const active = remote?.date;
-  const btn = (name, iso) => `<button class="day-btn" type="button" data-day="${iso}" aria-pressed="${active === iso}"><b>${name}</b><span>${esc(dayLabel(iso))}</span></button>`;
-  const quick = [istDay(-1), istDay(0), istDay(1)];
-  $('days').innerHTML = btn('Yesterday', quick[0]) + btn('Today', quick[1]) + btn('Tomorrow', quick[2])
-    + `<label class="day-other">Other day <input type="date" id="dayInput" value="${active && !quick.includes(active) ? active : ''}" aria-label="Check another date"></label>`;
+  const quick = [['Yesterday', istDay(-1)], ['Today', istDay(0)], ['Tomorrow', istDay(1)]];
+  const other = !quick.some(([, iso]) => iso === selectedDay);
+  $('days').innerHTML = quick.map(([name, iso]) => `<button type="button" role="radio" data-day="${iso}" aria-checked="${selectedDay === iso}"><b>${name}</b><span>${esc(dayLabel(iso))}</span></button>`).join('')
+    + `<label role="radio" aria-checked="${other}"><b>${other ? esc(dayLabel(selectedDay)) : 'Other day'}</b><span>${other ? 'Change date' : 'Pick a date'}</span><input type="date" id="dayInput" value="${selectedDay}" aria-label="Pick another date"></label>`;
+  drawCheckButton();
+}
+function drawCheckButton() {
+  const b = $('checkBtn'); if (!b || $('daypick').hidden) return;
+  if (checking) return;
+  b.disabled = false;
+  b.textContent = cases.length ? `Check my ${cases.length} case${cases.length > 1 ? 's' : ''} for ${dayLabel(selectedDay)}` : 'Add your case numbers to check';
 }
 function dayNote(msg) { $('dayNote').textContent = msg || ''; $('dayNote').hidden = !msg; }
 async function checkDay(date) {
   if (checking) return;
-  if (!cases.length) { dayNote('Add your case numbers first (My cases), then pick a day.'); $('newCase').focus(); return; }
+  if (!cases.length) { dayNote('Add your case numbers first under My cases.'); $('newCase').focus(); return; }
   checking = true; dayNote('');
-  $('progress').hidden = false; $('barFill').style.width = '35%';
-  $('progressText').textContent = `Fetching the court's lists for ${dayLabel(date)}… This can take 30–40 seconds; the full daily list is over 10,000 cases.`;
+  const b = $('checkBtn'), t0 = Date.now();
+  b.disabled = true; $('running').hidden = false;
+  const tick = () => { b.innerHTML = `<span class="spin" aria-hidden="true"></span> Reading ${esc(dayLabel(date))}'s lists… ${Math.round((Date.now() - t0) / 1000)}s`; };
+  tick(); const timer = setInterval(tick, 1000);
   try {
     const res = await fetch('/api/check', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ date, cases }) });
     const d = await res.json();
@@ -753,16 +789,19 @@ async function checkDay(date) {
       if (d.problems.length) dayNote(`Some lists couldn't be read: ${d.problems.length}. The rest are shown.`);
     }
   } catch (e) {
-    dayNote(`Couldn't check right now (${e.message}). Try again in a minute, or upload the PDF below.`);
+    dayNote(`Couldn't check right now (${e.message}). Try again in a minute, or upload the PDF instead.`);
   } finally {
-    checking = false; $('progress').hidden = true;
+    checking = false; clearInterval(timer); $('running').hidden = true; drawCheckButton();
   }
   drawLists();
   if (remote) { results = remote.results; showingExample = false; render(); $('results').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' }); }
   else refresh();
 }
-$('days').addEventListener('click', e => { const b = e.target.closest('[data-day]'); if (b) checkDay(b.dataset.day); });
-$('days').addEventListener('change', e => { if (e.target.id === 'dayInput' && e.target.value) checkDay(e.target.value); });
+$('days').addEventListener('click', e => { const b = e.target.closest('[data-day]'); if (b) { selectedDay = b.dataset.day; dayNote(''); drawDays(); } });
+$('days').addEventListener('change', e => { if (e.target.id === 'dayInput' && e.target.value) { selectedDay = e.target.value; dayNote(''); drawDays(); } });
+$('checkBtn').addEventListener('click', () => checkDay(selectedDay));
+$('uploadLink').addEventListener('click', () => { $('drop').hidden = false; $('file').click(); });
+$('moreCases').addEventListener('click', () => { casesOpen = !casesOpen; drawCases(); });
 
 prepareEngine().catch(() => { engineReady = null; });
 refresh();
