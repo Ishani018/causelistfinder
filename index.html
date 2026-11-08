@@ -140,6 +140,7 @@ body.has-cases .hero p { display: none; }
 .bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .12s linear; }
 .note-line { margin: 0; font-size: 14px; border-radius: 10px; padding: 10px 14px; }
 .note-line.warn { background: var(--warn-soft); color: var(--warn); }
+.note-line .linkbtn { color: inherit; font-weight: 700; margin-left: 8px; }
 .note-line.err { background: var(--supp-soft); color: var(--supp); }
 .note-line.example { background: var(--sunk); color: var(--muted); border: 1px dashed var(--rule); }
 
@@ -1000,7 +1001,7 @@ function drawCheckButton() {
   b.disabled = false;
   b.textContent = cases.length ? `Check my ${cases.length} case${cases.length > 1 ? 's' : ''} for ${dayLabel(selectedDay)}` : 'Add your case numbers to check';
 }
-function dayNote(msg) { $('dayNote').textContent = msg || ''; $('dayNote').hidden = !msg; }
+function dayNote(msg, html) { $('dayNote').innerHTML = html ? msg : esc(msg || ''); $('dayNote').hidden = !msg; }
 async function checkDay(date) {
   if (checking) return;
   if (!cases.length) { dayNote('Add your case numbers first under My cases.'); $('newCase').focus(); return; }
@@ -1016,8 +1017,9 @@ async function checkDay(date) {
     $('barFill').style.width = '100%';
     if (!d.lists.length) {
       remote = null;
-      dayNote(date > istDay(0) ? `The court hasn't published a list for ${dayLabel(date)} yet. Daily lists usually go up around 9 pm the evening before.`
-        : `No cause list on the court website for ${dayLabel(date)} (a holiday or weekend?).`);
+      const near = (d.nearby || []).map(n => `<button class="linkbtn" type="button" data-near="${n}">Check ${esc(dayLabel(n))}</button>`).join(' ');
+      if (date > istDay(0) && !d.nearby?.some(n => n > date)) dayNote(`The court hasn't published a list for ${dayLabel(date)} yet. Daily lists usually go up around 9 pm the evening before.`);
+      else dayNote(`No cause list was published for <b>${esc(dayLabel(date))}</b>: no bench sat that day.${near ? ` Nearest lists: ${near}` : ''}`, true);
     } else {
       lists = []; index = null;
       remote = { date, lists: d.lists, results: d.results, casesKey: cases.join('|') };
@@ -1035,6 +1037,7 @@ async function checkDay(date) {
 $('days').addEventListener('click', e => { const b = e.target.closest('[data-day]'); if (b) { selectedDay = b.dataset.day; dayNote(''); drawDays(); } });
 $('days').addEventListener('change', e => { if (e.target.id === 'dayInput' && e.target.value) { selectedDay = e.target.value; dayNote(''); drawDays(); } });
 $('checkBtn').addEventListener('click', () => checkDay(selectedDay));
+$('dayNote').addEventListener('click', e => { const b = e.target.closest('[data-near]'); if (b) { selectedDay = b.dataset.near; drawDays(); checkDay(selectedDay); } });
 $('uploadLink').addEventListener('click', () => { $('drop').hidden = false; $('file').click(); });
 $('moreCases').addEventListener('click', () => { casesOpen = !casesOpen; drawCases(); });
 

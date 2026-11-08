@@ -57,6 +57,7 @@ module.exports = async (req, res) => {
   // Also read the court's notices pages, newest first, back to a few days before the date. This finds
   // supplementary and vacation lists posted before the watcher started, or between its checks.
   const known = new Set(sources.map(s => s.url));
+  const listDates = new Set();   // hearing dates that have a daily list, to suggest when this date has none
   const stopBefore = new Date(day.getTime() - 4 * 86400e3).toISOString().slice(0, 10);
   for (let page = 1; page <= 10; page++) {
     let notices;
@@ -64,6 +65,7 @@ module.exports = async (req, res) => {
     for (const n of notices) {
       const t = site.describeTitle(n.title);
       const url = `${site.BASE}/Notice-Files/CL/${n.id}`;
+      if (t.type === 'daily' && t.hearingDate) listDates.add(t.hearingDate);
       if (t.hearingDate === date && (t.type === 'daily' || t.type === 'supplementary') && !known.has(url)) {
         known.add(url); sources.push({ url, via: 'notice', side: t.side });
       }
@@ -101,5 +103,12 @@ module.exports = async (req, res) => {
     linked: (r.linked || []).map(({ _key, _type, ...e }) => e),
     near: (r.near || []).map(({ _key, _type, ...e }) => e),
   }));
-  res.status(200).json({ date, lists, results, problems });
+  // No list for this date: the nearest earlier and later dates that had one.
+  let nearby = [];
+  if (!lists.length) {
+    const sorted = [...listDates].sort();
+    const before = sorted.filter(d => d < date).pop(), after = sorted.find(d => d > date);
+    nearby = [before, after].filter(Boolean);
+  }
+  res.status(200).json({ date, lists, results, problems, nearby });
 };
