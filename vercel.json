@@ -1,0 +1,9 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "regions": ["bom1"],
+  "buildCommand": "node tools/build.js",
+  "outputDirectory": ".",
+  "functions": {
+    "api/*.js": { "maxDuration": 60, "includeFiles": "watcher/*.pem" }
+  }
+}

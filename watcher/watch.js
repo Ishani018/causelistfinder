@@ -6,15 +6,6 @@
 //   node watcher/watch.js --archive also probe the archive now, even if it was checked recently
 const fs = require('fs');
 const path = require('path');
-const { spawnSync } = require('child_process');
-
-// The court's server does not send its intermediate certificate. Node needs it to verify the site,
-// so re-run with it added (never with verification turned off).
-const CERT = path.join(__dirname, 'globalsign-alphassl-ca-2025.pem');
-if (!process.env.NODE_EXTRA_CA_CERTS) {
-  const r = spawnSync(process.execPath, process.argv.slice(1), { stdio: 'inherit', env: { ...process.env, NODE_EXTRA_CA_CERTS: CERT } });
-  process.exit(r.status ?? 1);
-}
 
 const site = require('./court-site.js');
 const { readList, unreadCaseNumbers } = require('../tools/read-list.js');

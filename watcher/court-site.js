@@ -1,4 +1,5 @@
 // Everything that knows about the Calcutta High Court website: where lists are and how notices look.
+const { request } = require('./http.js');
 const BASE = 'https://www.calcuttahighcourt.gov.in';
 const USER_AGENT = 'CauseListFinder/0.1 (cause list watcher; https://github.com/Ishani018/causelistfinder)';
 
@@ -47,15 +48,12 @@ function describeTitle(title) {
   return { type, side, hearingDate: d ? `${d[3]}-${d[2]}-${d[1]}` : null, court: court ? court[1] : null, vacation: /VACATION/.test(t) };
 }
 
-async function get(url, method = 'GET') {
-  const res = await fetch(url, { method, headers: { 'User-Agent': USER_AGENT }, redirect: 'follow', signal: AbortSignal.timeout(60000) });
-  return res;
-}
+const get = (url, method = 'GET') => request(url, { method, headers: { 'User-Agent': USER_AGENT } });
 
 async function fetchNotices(page = 1) {
   const res = await get(`${BASE}/Notices/CL?page=${page}`);
   if (!res.ok) throw new Error(`notices page ${page}: HTTP ${res.status}`);
-  return parseNotices(await res.text());
+  return parseNotices(res.body.toString('utf8'));
 }
 
 // HEAD an archive file: exists?, size and the server's upload time.
@@ -63,16 +61,15 @@ async function probeArchive(url) {
   const res = await get(url, 'HEAD');
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`${url}: HTTP ${res.status}`);
-  const lm = res.headers.get('last-modified');
-  return { size: +res.headers.get('content-length') || null, uploadedAt: lm ? new Date(lm).toISOString() : null };
+  const lm = res.headers['last-modified'];
+  return { size: +res.headers['content-length'] || null, uploadedAt: lm ? new Date(lm).toISOString() : null };
 }
 
 async function download(url) {
   const res = await get(url);
   if (!res.ok) throw new Error(`${url}: HTTP ${res.status}`);
-  const type = res.headers.get('content-type') || '';
-  const bytes = Buffer.from(await res.arrayBuffer());
-  return { bytes, isPdf: /pdf/i.test(type) || bytes.subarray(0, 5).toString() === '%PDF-' };
+  const bytes = res.body;
+  return { bytes, isPdf: /pdf/i.test(res.headers['content-type'] || '') || bytes.subarray(0, 5).toString() === '%PDF-' };
 }
 
 module.exports = { BASE, SIDES, archiveUrl, parseNotices, describeTitle, istStamp, fetchNotices, probeArchive, download };

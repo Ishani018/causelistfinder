@@ -1,0 +1,4 @@
+node_modules
+data/pdfs
+data/watch.out
+tests/fixtures
