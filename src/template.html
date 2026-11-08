@@ -251,6 +251,13 @@ body.has-cases .hero p { display: none; }
 .watch-list b { font-weight: 600; font-size: 13px; line-height: 1.35; }
 .watch-list span { color: var(--muted); font-size: 12px; }
 .watch-list .bad { color: var(--supp); }
+.how { padding: 20px 22px; }
+.how h3 { margin: 0 0 12px; font: 600 19px var(--f-display); }
+.how ol { margin: 0; padding: 0; list-style: none; counter-reset: step; display: grid; gap: 14px; }
+.how li { counter-increment: step; display: grid; grid-template-columns: 30px minmax(0, 1fr); column-gap: 12px; row-gap: 2px; }
+.how li::before { content: counter(step); grid-row: span 2; width: 26px; height: 26px; border-radius: 50%; background: var(--mark); color: var(--mark-ink); font: 700 13px/26px var(--f-body); text-align: center; }
+.how li b { font-size: 15px; }
+.how li span { font-size: 14px; color: var(--muted); }
 .copybox { width: 100%; min-height: 180px; font: 13px/1.5 var(--f-mono); padding: 12px; border-radius: 9px; border: 1px solid var(--rule); background: var(--sunk); }
 footer { margin-top: 28px; font-size: 13px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 6px 18px; }
 
@@ -270,7 +277,7 @@ footer { margin-top: 28px; font-size: 13px; color: var(--muted); display: flex; 
 <div class="wrap">
   <section class="hero">
     <h1>Is your case <mark>listed</mark>?</h1>
-    <p>Save your case numbers once. Then drop in the day's cause list PDF and see the court, item and time for each case, with anything the court changed for that bench.</p>
+    <p>Save your case numbers once. Then pick a day and see the court, item and time for each case in the Calcutta High Court cause list.</p>
   </section>
 
   <div class="grid">
@@ -341,7 +348,7 @@ const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '
 const fmt = n => n.toLocaleString('en-IN');
 const CHEV = '<svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
 
-let index = null, results = EXAMPLE, showingExample = true;
+let index = null, results = [], showingExample = false;   // EXAMPLE stays available but isn't shown unprompted
 let lists = [], nextListId = 1;
 let remote = null;     // { date, lists, results, casesKey } when checking a day straight from the court website
 const activeLists = () => remote ? remote.lists : lists;
@@ -501,7 +508,7 @@ function render() {
   const groups = group(results);
   lastGroups = groups;
   drawCases();
-  if (!showingExample && !index && !remote) { box.innerHTML = ''; return; }
+  if (!showingExample && !index && !remote) { box.innerHTML = HOW_IT_WORKS; return; }
   const { listed, check, missing, names } = groups;
   const n = new Set(listed.map(x => x.label)).size;
   const missingCases = missing.filter(m => normaliseCase(m)).length;
@@ -535,6 +542,16 @@ function render() {
   if (!showingExample && index) rememberSeen(listed);
 }
 
+// Shown until the first check, instead of example results.
+const HOW_IT_WORKS = `<section class="panel how">
+  <h3>How it works</h3>
+  <ol>
+    <li><b>Add your case numbers</b><span>Once. Type them any way, or paste your whole list. They stay on this device.</span></li>
+    <li><b>Pick a day and press Check</b><span>The site reads that day's cause lists from the High Court website, including supplementary lists.</span></li>
+    <li><b>See where each case is listed</b><span>Court, item number, time and judges, plus any note the court added for that bench. Copy it all for WhatsApp in one tap.</span></li>
+  </ol>
+</section>`;
+
 function refresh() {
   if (remote) {
     showingExample = false;
@@ -542,7 +559,7 @@ function refresh() {
     results = remote.results; render(); return;
   }
   if (index) { results = search(index, cases); showingExample = false; }
-  else { showingExample = !cases.length; results = showingExample ? EXAMPLE : []; }
+  else { showingExample = false; results = []; }
   render();
 }
 
