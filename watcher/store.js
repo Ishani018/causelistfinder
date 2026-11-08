@@ -21,6 +21,8 @@ function fileStore(dir) {
     },
     async lock() { return true; },
     async unlock() {},
+    async note() {},
+    async notes() { return {}; },
   };
 }
 
@@ -42,6 +44,9 @@ function redisStore(url, token) {
     // One check at a time, even if two schedulers fire together; expires on its own after 5 minutes.
     async lock() { return (await call('SET', 'clf:lock', String(Date.now()), 'NX', 'EX', 300)) === 'OK'; },
     async unlock() { await call('DEL', 'clf:lock'); },
+    // Small facts for the status page, e.g. the last call that was turned away.
+    async note(key, value) { await call('HSET', 'clf:notes', key, JSON.stringify(value)); },
+    async notes() { const r = await call('HGETALL', 'clf:notes') || []; const o = {}; for (let i = 0; i < r.length; i += 2) o[r[i]] = JSON.parse(r[i + 1]); return o; },
   };
 }
 

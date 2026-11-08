@@ -5,10 +5,11 @@ module.exports = async (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
   try {
     const store = pickStore();
-    const [state, recent] = await Promise.all([store.loadState(), store.recent(30)]);
+    const [state, recent, notes] = await Promise.all([store.loadState(), store.recent(30), store.notes()]);
     res.status(200).json({
       lastCheck: state.lastRun || null,
       consecutiveFailures: state.failures || 0,
+      lastRejectedCall: notes.lastRejectedCall || null,
       listsSeen: Object.keys(state.notices).length + Object.keys(state.archive).length,
       recent: recent.reverse().map(r => ({
         foundAt: r.foundAt, source: r.source, title: r.title || null, uploadedAt: r.uploadedAt || null,
