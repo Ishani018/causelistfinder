@@ -804,10 +804,10 @@ function drawLists() {
   const all = activeLists();
   $('lists').innerHTML = all.map(l => `<li><span class="k ${l.kind}">${esc(KIND_NAME[l.kind] || 'List')}</span><span><b>${esc(l.label.split(' · ').slice(1).join(' · ') || l.label)}</b> <small>· ${fmt(l.count ?? l.entries.length)} cases · ${fmt(l.pages)} pages</small></span><button type="button" data-drop="${remote ? 'remote' : l.id}" aria-label="Remove ${esc(l.label)}">×</button></li>`).join('');
   $('lists').hidden = !all.length;
-  $('drop').classList.toggle('compact', lists.length > 0);
-  $('dropTitle').textContent = lists.length ? 'Add another list' : 'Upload the cause list PDF';
-  $('dropHint').textContent = lists.length ? 'For example the supplementary list, when it comes out.' : 'Daily, supplementary or monthly. Drop it anywhere on this page.';
-  $('dropBtn').textContent = lists.length ? 'Add PDF' : 'Choose PDF';
+  $('drop').classList.toggle('compact', all.length > 0);
+  $('dropTitle').textContent = remote ? 'Upload a PDF instead' : lists.length ? 'Add another list' : 'Upload the cause list PDF';
+  $('dropHint').textContent = remote ? 'Replaces the lists fetched from the court website.' : lists.length ? 'For example the supplementary list, when it comes out.' : 'Daily, supplementary or monthly. Drop it anywhere on this page.';
+  $('dropBtn').textContent = all.length ? 'Add PDF' : 'Choose PDF';
   $('suppTip').hidden = !!remote || !lists.some(l => l.kind === 'daily') || lists.some(l => l.kind === 'supplementary');
   drawDays();
 }
