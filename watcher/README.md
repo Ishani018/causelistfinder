@@ -21,7 +21,10 @@ npm run watch -- --archive    # one check that also probes the archive now
 npm run report                # summary of the last 7 days (add -- --days 14)
 ```
 
-On GitHub, `.github/workflows/watch.yml` runs a check every 10 minutes in the daytime and every 30 minutes overnight, and commits the log back to the repo. GitHub sometimes starts scheduled runs late, so for exact timing figures run `--loop` on an always-on machine as well.
+**It must run from India.** The court website doesn't answer GitHub's own runners in the US: connections time out (tested twice on 8 Nov 2026, while the same requests worked from India). Options:
+
+- **This Mac:** `sh watcher/install-mac.sh` starts `--loop` in the background and restarts it at login. It only checks while the Mac is awake and online. Run it from a permanent folder, not a temporary one.
+- **A small server in India** (any cloud's Mumbai/Hyderabad/Bangalore region): clone the repo and run `npm run watch -- --loop` under a process manager. Or register it as a GitHub self-hosted runner, set the repository variable `WATCH_RUNNER` to its label, and uncomment the schedule in `.github/workflows/watch.yml`. The workflow then commits the log back to the repo.
 
 ### Operator alerts on Telegram (optional)
 

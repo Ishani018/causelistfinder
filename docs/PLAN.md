@@ -45,7 +45,7 @@ The notices list is at `/Notices/CL?page=N`, 10 per page, newest first. Each ite
 |---|---|---|
 | Alert channel for the pilot | **Telegram bot or email** | Free and needs no approval. Good enough for 3–5 pilot users |
 | Alert channel for launch | **WhatsApp Business API** (through Meta's Cloud API or an Indian provider) | It's what lawyers and clerks use all day. It needs a verified business and pre-approved message templates, and every message costs money; check current Meta pricing for India "utility" messages |
-| Hosting | A small always-on server in India (VPS or a container platform) + a small Postgres | The watcher must run every few minutes, all day. Indian hosting avoids any risk of the court site blocking foreign IPs (not tested) |
+| Hosting | A small always-on server in India (VPS or a container platform) + a small Postgres | The watcher must run every few minutes, all day. **The court site does not answer from outside India:** GitHub's US runners time out (tested 8 Nov 2026), so hosting must be in an Indian region |
 | Accounts | Phone number + OTP | No passwords; the phone is also the WhatsApp destination |
 | What to store | Case numbers, phone, list of alerts sent. Keep copies of court PDFs for 30 days | Case lists are client information: keep them minimal, encrypted at rest, and never in a public repo. Read up on India's DPDP Act before taking paying users |
 

@@ -4,3 +4,4 @@ node_modules/
 *.pdf.json
 .DS_Store
 data/pdfs/
+data/watch.out

@@ -1,11 +1,15 @@
 # Phase 0: check the court website on a schedule and log every new cause list.
 # Only data/state.json and data/log.jsonl are committed back; downloaded PDFs are not kept here.
+#
+# The court website does not answer GitHub's own (US) runners: connections time out (tested 8 Nov 2026).
+# So this needs a self-hosted runner in India. Register one, set the repository variable WATCH_RUNNER
+# to its label (e.g. "self-hosted"), then uncomment the schedule.
 name: Watch cause lists
 
 on:
-  schedule:
-    - cron: '*/10 1-17 * * *'        # every 10 min, 06:30–23:20 IST (GitHub may start runs late)
-    - cron: '15,45 0,18-23 * * *'    # every 30 min overnight
+  # schedule:
+  #   - cron: '*/10 1-17 * * *'        # every 10 min, 06:30–23:20 IST (GitHub may start runs late)
+  #   - cron: '15,45 0,18-23 * * *'    # every 30 min overnight
   workflow_dispatch:
 
 permissions:
@@ -17,7 +21,7 @@ concurrency:
 
 jobs:
   watch:
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.WATCH_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
