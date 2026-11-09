@@ -943,7 +943,7 @@ async function checkDay(date) {
       remote = null;
       const near = (d.nearby || []).map(n => `<button class="linkbtn" type="button" data-near="${n}">Check ${esc(dayLabel(n))}</button>`).join(' ');
       if (date > istDay(0) && !d.nearby?.some(n => n > date)) dayNote(`The court hasn't published a list for ${dayLabel(date)} yet. Daily lists usually go up around 9 pm the evening before.`);
-      else dayNote(`No cause list was published for <b>${esc(dayLabel(date))}</b>: no bench sat that day.${near ? ` Nearest lists: ${near}` : ''}`, true);
+      else dayNote(`Couldn't find a cause list for <b>${esc(dayLabel(date))}</b> on the court website (archive and cause-list notices, ${esc(sides.map(s => SIDE_NAME[s]).join(', '))}). If you have the list, <button class="linkbtn" type="button" data-upload>upload the PDF</button>.${near ? ` Nearest lists found: ${near}` : ''}`, true);
     } else {
       lists = []; index = null;
       remote = { date, lists: d.lists, results: d.results, casesKey: checkKey() };
@@ -970,7 +970,7 @@ $('sides').addEventListener('click', e => {
   drawSides();
   if (remote) refresh();
 });
-$('dayNote').addEventListener('click', e => { const b = e.target.closest('[data-near]'); if (b) { selectedDay = b.dataset.near; drawDays(); checkDay(selectedDay); } });
+$('dayNote').addEventListener('click', e => { if (e.target.closest('[data-upload]')) { $('drop').hidden = false; $('file').click(); return; } const b = e.target.closest('[data-near]'); if (b) { selectedDay = b.dataset.near; drawDays(); checkDay(selectedDay); } });
 $('uploadLink').addEventListener('click', () => { $('drop').hidden = false; $('file').click(); });
 $('moreCases').addEventListener('click', () => { casesOpen = !casesOpen; drawCases(); });
 

@@ -41,7 +41,7 @@ function parseNotices(html) {
 function describeTitle(title) {
   const t = title.toUpperCase();
   const type = /SUPPLEMENTARY/.test(t) ? 'supplementary' : /MONTHLY/.test(t) ? 'monthly' : /LOK ADALAT/.test(t) ? 'lok adalat'
-    : /CAUSE ?LIST/.test(t) ? 'daily' : 'notice';
+    : /CAUSE ?L?IS?T/.test(t) ? 'daily' : 'notice';   // the court's titles have typos: CAUSELIST, CAUSEIST
   const side = /ORIGINAL SIDE/.test(t) ? 'original' : /JALPAIGURI/.test(t) ? 'jalpaiguri' : /PORT BLAIR/.test(t) ? 'portblair' : /APPELLATE/.test(t) ? 'appellate' : '';
   const d = t.match(/(\d{2})[.\-/](\d{2})[.\-/](\d{4})/);
   const court = t.match(/COURT NO\.?\s*([0-9A-Z]+)/);

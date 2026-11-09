@@ -21,6 +21,7 @@ test('notice titles say what kind of list it is', () => {
   assert.deepStrictEqual(describeTitle('DAILY CAUSELIST DATED 24.09.2026 - CIRCUIT BENCH AT PORT BLAIR'),
     { type: 'daily', side: 'portblair', hearingDate: '2026-09-24', court: null, vacation: false });
   assert.strictEqual(describeTitle('Vacation Bench Cause List dated 09-11-2026 - Circuit Bench at Port Blair').hearingDate, '2026-11-09');
+  assert.strictEqual(describeTitle('VACATION BENCH CAUSEIST DATED 06.11.2026 - CIRCUIT BENCH AT PORT BLAIR').type, 'daily');   // court's typo
   assert.strictEqual(describeTitle('Notice regarding mentioning of matters').type, 'notice');
 });
 
