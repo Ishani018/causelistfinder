@@ -213,7 +213,7 @@ const dayLabel = iso => iso ? new Date(iso + 'T00:00:00Z').toLocaleDateString('e
 const SIDE = { appellate: 'Appellate', original: 'Original', jalpaiguri: 'Jalpaiguri', portblair: 'Port Blair' };
 const WHAT = {
   check: ['Checked', ''], 'check-refused': ['Check refused', 'bad'], login: ['Signed in', 'ok'], 'login-refused': ['Sign-in refused', 'bad'],
-  logout: ['Signed out', ''], open: ['Opened the site', ''], invite: ['Invited', 'warn'], remove: ['Removed', 'warn'],
+  logout: ['Signed out', ''], open: ['Opened the site', ''], 'case-file': ['Case file', ''], petition: ['Opened petition', ''], invite: ['Invited', 'warn'], remove: ['Removed', 'warn'],
 };
 const device = ua => {
   if (!ua) return '';
