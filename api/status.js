@@ -1,6 +1,7 @@
 // Signed-in people only, read-only: when the watcher last checked and what it has logged recently.
 const { pickStore } = require('../watcher/store.js');
 const { requireUser } = require('../lib/auth.js');
+const { fetchPaused } = require('../lib/pause.js');
 
 module.exports = async (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
@@ -9,6 +10,7 @@ module.exports = async (req, res) => {
     const store = pickStore();
     const [state, recent, notes] = await Promise.all([store.loadState(), store.recent(30), store.notes()]);
     res.status(200).json({
+      paused: fetchPaused(),
       lastCheck: state.lastRun || null,
       consecutiveFailures: state.failures || 0,
       lastRejectedCall: notes.lastRejectedCall || null,

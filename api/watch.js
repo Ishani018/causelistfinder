@@ -2,6 +2,7 @@
 // Needs CRON_SECRET: callers send "Authorization: Bearer <CRON_SECRET>" (Vercel Cron does this itself),
 // so nobody else can make it hit the court website.
 const { runOnce } = require('../watcher/watch.js');
+const { fetchPaused } = require('../lib/pause.js');
 const { pickStore } = require('../watcher/store.js');
 
 module.exports = async (req, res) => {
@@ -18,6 +19,7 @@ module.exports = async (req, res) => {
   }
   try {
     // ?archive=1 also probes the archive now; ?reset=1 forgets which lists were seen (the log is kept) and reads them again.
+    if (fetchPaused()) return res.status(200).json({ skipped: 'paused: fetching from court websites is switched off (lib/pause.js)' });
     res.status(200).json(await runOnce({ forceArchive: req.query?.archive === '1', reset: req.query?.reset === '1' }));
   } catch (e) {
     res.status(500).json({ error: e.message });

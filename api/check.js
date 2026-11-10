@@ -3,6 +3,7 @@
 // or supplementary list the watcher has seen posted as a notice for that date. Returns only the matches. Case numbers are not stored.
 //   POST /api/check  { "date": "2026-11-09", "cases": ["WPA/1234/2025", ...], "sides": ["appellate"] }
 // sides: any of appellate, original, jalpaiguri, portblair (default: all).
+const { refuseIfPaused } = require('../lib/pause.js');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -44,6 +45,7 @@ module.exports = async (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
   if (req.method !== 'POST') return res.status(405).json({ error: 'Use POST with { date, cases }.' });
   const user = await requireUser(req, res); if (!user) return;
+  if (refuseIfPaused(res)) return;
   const t0 = Date.now();
   const { date, cases } = req.body || {};
   const sides = (Array.isArray(req.body?.sides) ? req.body.sides : Object.keys(site.SIDES)).filter(s => site.SIDES[s]);

@@ -66,3 +66,10 @@ how many cases; not the case numbers). Users never see the log.
 **Moving to your own domain:** add the domain in Vercel (Settings → Domains), add it as another
 authorised JavaScript origin on the Google OAuth client, and point the cron-job.org job at it (or leave
 it on the vercel.app address, which keeps working). Invites and logs stay; people sign in once again.
+
+## Pause switch
+
+`lib/pause.js` switches off every request to court websites (the watcher, day checks, SARTHAC case
+files, eCourts orders). It is **on (paused)** in code. To resume without a code change, set
+`FETCH_PAUSED=0` in Vercel and redeploy; to resume for good, set `PAUSED_BY_DEFAULT = false`.
+PDF upload keeps working while paused: it is read in the browser.

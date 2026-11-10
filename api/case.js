@@ -2,6 +2,7 @@
 // with contact details, the State respondents' offices with phone and email, and a link to the petition.
 //   GET /api/case?case=WPA/3212/2026
 // SARTHAC only has cases where the State of West Bengal is a party: for others, { found: false }.
+const { refuseIfPaused } = require('../lib/pause.js');
 const { requireUser } = require('../lib/auth.js');
 const { logActivity } = require('../lib/activity.js');
 const sarthac = require('../lib/sarthac.js');
@@ -12,6 +13,7 @@ const cache = new Map();   // case -> { at, data }, while this function instance
 module.exports = async (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
   const user = await requireUser(req, res); if (!user) return;
+  if (refuseIfPaused(res)) return;
   const n = normaliseCase(String(req.query?.case || ''));
   if (!n || !/^\d{1,7}$/.test(n.num) || !/^\d{4}$/.test(n.year)) return res.status(400).json({ error: 'Give a case number like WPA/3212/2026.' });
   const key = n.key;

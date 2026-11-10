@@ -6,7 +6,7 @@ const path = require('path');
 
 const EMPTY_STATE = () => ({ notices: {}, archive: {}, heartbeats: {}, lastArchiveCheck: null, failures: 0 });
 
-const hits = new Map();   // hourly counters for local runs (Redis keeps them on Vercel)
+const hits = new Map(), temp = new Map();   // hourly counters and short-lived values for local runs (Redis keeps them on Vercel)
 
 function fileStore(dir) {
   const pdfDir = path.join(dir, 'pdfs');
@@ -33,6 +33,8 @@ function fileStore(dir) {
     },
     async users() { try { return JSON.parse(fs.readFileSync(usersFile, 'utf8')); } catch { return {}; } },
     async userSet(email, info) { const u = await this.users(); if (info) u[email] = info; else delete u[email]; fs.writeFileSync(usersFile, JSON.stringify(u, null, 1)); },
+    async tmpSet(key, value) { temp.set(key, { value, until: Date.now() + 1800e3 }); },
+    async tmpGet(key) { const t = temp.get(key); return t && t.until > Date.now() ? t.value : null; },
     async hit(key) { const k = key + '|' + Math.floor(Date.now() / 3600e3); hits.set(k, (hits.get(k) || 0) + 1); return hits.get(k); },
   };
 }
@@ -64,6 +66,9 @@ function redisStore(url, token) {
     // People invited from the owner's page: email -> { addedAt, addedBy, note }. Pass no info to remove.
     async users() { const r = await call('HGETALL', 'clf:users') || []; const o = {}; for (let i = 0; i < r.length; i += 2) o[r[i]] = JSON.parse(r[i + 1]); return o; },
     async userSet(email, info) { if (info) await call('HSET', 'clf:users', email, JSON.stringify(info)); else await call('HDEL', 'clf:users', email); },
+    // Short-lived values (e.g. an eCourts session while someone types its captcha): gone after 30 minutes.
+    async tmpSet(key, value) { await call('SET', `clf:tmp:${key}`, JSON.stringify(value), 'EX', 1800); },
+    async tmpGet(key) { const v = await call('GET', `clf:tmp:${key}`); return v ? JSON.parse(v) : null; },
     // Calls this hour for a key (e.g. checks by one person); the counter expires on its own.
     async hit(key) {
       const k = `clf:hits:${key}:${Math.floor(Date.now() / 3600e3)}`;

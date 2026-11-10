@@ -2,6 +2,7 @@
 //   GET /api/log                 newest 5,000 entries as JSON (for the owner's page)
 //   GET /api/log?format=csv      the whole log (up to 50,000 entries) as a CSV file
 //   GET /api/log?kind=watcher    the watcher's log instead (lists found on the court website)
+//   GET /api/log?kind=ecourts    the last eCourts case page that wasn't fully understood (kept 30 minutes)
 const auth = require('../lib/auth.js');
 const { pickStore } = require('../watcher/store.js');
 
@@ -13,6 +14,7 @@ module.exports = async (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
   const user = await auth.requireUser(req, res); if (!user) return;
   if (!user.admin) return res.status(403).json({ error: 'Only admins can read the log.' });
+  if (req.query?.kind === 'ecourts') return res.status(200).json(await pickStore().tmpGet('ec-debug'));   // the last eCourts page not fully understood
   const kind = req.query?.kind === 'watcher' ? 'watcher' : 'activity';
   const csv = req.query?.format === 'csv';
   const store = pickStore();

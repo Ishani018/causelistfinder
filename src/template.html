@@ -311,6 +311,15 @@ footer { margin-top: 28px; font-size: 13px; color: var(--muted); display: flex; 
 .casebtn:hover { color: var(--accent); text-decoration: underline; text-underline-offset: 3px; }
 .filebtn { border: 1px solid var(--rule); background: var(--panel); color: var(--accent); border-radius: 8px; padding: 5px 10px; font: 600 13px var(--f-body); cursor: pointer; }
 .filebtn:hover { border-color: var(--accent); }
+.cf-captcha { display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: center; }
+.cf-captcha img { background: #fff; border-radius: 8px; border: 1px solid var(--rule); image-rendering: auto; }
+.cf-captcha .linkbtn { justify-self: start; }
+.cf-captcha .field, .cf-captcha .btn { grid-column: 1 / -1; }
+.cf-orders { list-style: none; margin: 0; padding: 0; }
+.cf-orders li { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--rule); }
+.cf-orders li:last-child { border-bottom: 0; }
+.cf-orders li > span b { display: block; font-variant-numeric: tabular-nums; }
+.cf-orders li > span span { display: block; color: var(--muted); font-size: 12px; }
 @media (max-width: 560px) {
   .cf { width: 100vw; height: 92dvh; margin: auto 0 0; border-radius: 16px 16px 0 0; }
   .cf-kv { grid-template-columns: 96px minmax(0, 1fr); }
@@ -457,6 +466,7 @@ const EXAMPLE = /*EXAMPLE*/;
 const WORKER = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 const $ = id => document.getElementById(id);
 let me = null;   // the signed-in person on the hosted site (case files need a sign-in)
+let paused = false;   // fetching from the court websites is switched off on the server (lib/pause.js)
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const fmt = n => n.toLocaleString('en-IN');
 const CHEV = '<svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
@@ -541,7 +551,7 @@ function drawCases() {
     .sort((a, b) => (state[b.c] === 'on') - (state[a.c] === 'on') || (state[b.c] === 'chk') - (state[a.c] === 'chk'));
   const folded = !q && !casesOpen && shown.length > FOLD_AT;
   $('mycases').innerHTML = (folded ? shown.slice(0, FOLD_AT) : shown).map(({ c, i }) =>
-    `<li class="${state[c] || ''}"><span class="dot" aria-hidden="true"></span>${me ? `<button type="button" class="casebtn" data-file="${esc(c)}" title="Petition, lawyers and contacts">${esc(c)}</button>` : `<span class="c">${esc(c)}</span>`}<button type="button" data-del="${i}" aria-label="Remove ${esc(c)}">×</button></li>`).join('');
+    `<li class="${state[c] || ''}"><span class="dot" aria-hidden="true"></span>${me && !paused ? `<button type="button" class="casebtn" data-file="${esc(c)}" title="Petition, lawyers and contacts">${esc(c)}</button>` : `<span class="c">${esc(c)}</span>`}<button type="button" data-del="${i}" aria-label="Remove ${esc(c)}">×</button></li>`).join('');
   $('moreCases').hidden = q || shown.length <= FOLD_AT;
   $('moreCases').textContent = folded ? `Show all ${cases.length} cases` : 'Show fewer';
   $('clearAll').hidden = cases.length < 3 || folded;
@@ -612,7 +622,7 @@ function rowHTML({ label, e, multi, connected }) {
       ${e.vc ? `<dt>Video hearing</dt><dd><a href="${esc(e.vc)}" target="_blank" rel="noopener">Join the bench's VC link</a></dd>` : ''}
       ${e.benchNotes ? `<dt>Bench notes</dt><dd>${esc(sentence(e.benchNotes.length > 600 ? e.benchNotes.slice(0, 600) + '…' : e.benchNotes))}</dd>` : ''}
       <dt>Found in</dt><dd>${esc(e.src || 'Cause list')}, PDF page ${e.page}</dd>
-      ${me ? `<dt>Case file</dt><dd><button class="filebtn" type="button" data-file="${esc(e.caseNo)}" data-side="${esc(e.side || '')}" data-adv="${esc(adv)}">Petition, lawyers &amp; contacts</button></dd>` : ''}
+      ${me && !paused ? `<dt>Case file</dt><dd><button class="filebtn" type="button" data-file="${esc(e.caseNo)}" data-side="${esc(e.side || '')}" data-adv="${esc(adv)}">Petition, lawyers &amp; contacts</button></dd>` : ''}
     </dl>
   </details>`;
 }
@@ -868,6 +878,14 @@ async function loadWatch() {
     if (!res.ok) throw new Error();
     d = await res.json();
   } catch { $('drop').hidden = false; return; }   // not on the hosted site: PDF upload is the way in
+  paused = Boolean(d.paused);
+  if (paused) {
+    $('watch').hidden = false; $('daypick').hidden = true; $('drop').hidden = false;
+    $('watchDot').classList.add('stale'); $('watchWhen').textContent = 'Paused';
+    $('watchNote').textContent = 'Checking the court website is paused for now. Upload the cause list PDF to find your cases.';
+    $('watchList').innerHTML = '';
+    return;
+  }
   if ($('watch').hidden) $('watch').open = matchMedia('(min-width: 901px)').matches;
   $('watch').hidden = false;
   if ($('daypick').hidden) { $('daypick').hidden = false; if (!lists.length) $('drop').hidden = true; drawDays(); }
@@ -945,6 +963,7 @@ async function boot() {
     if (!res.ok) throw new Error();
     d = await res.json();
   } catch { $('app').hidden = false; $('drop').hidden = false; return; }   // not the hosted site: PDF upload only
+  paused = Boolean(d.paused);
   if (d.user) return showApp(d.user);
   showGate();
   if (d.mode === 'password') { $('pwForm').hidden = false; $('pwUser').focus(); return; }
@@ -1036,11 +1055,14 @@ const longDate = iso => iso ? new Date(iso + 'T00:00:00Z').toLocaleDateString('e
 async function openCaseFile(caseNo, side, cauAdv) {
   const n = normaliseCase(caseNo); if (!n) return;
   $('cfTitle').innerHTML = `${esc(n.key)}<small>Case file</small>`;
-  const ordersSec = `<section class="cf-sec"><h3>Orders</h3>
-      <p class="cf-muted">The court's eCourts site has every order, but asks you to type a captcha, so open it there: choose case type <b>${esc(n.type)}</b>, number <b>${esc(n.num)}</b>, year <b>${esc(n.year)}</b>.</p>
-      <p><a class="btn ghost" href="https://hcservices.ecourts.gov.in/ecourtindiaHC/cases/case_no.php?state_cd=16&amp;dist_cd=1&amp;court_code=${ECOURTS[side] || 3}&amp;stateNm=Calcutta" target="_blank" rel="noopener">Open eCourts case status</a></p></section>`;
+  side = side || sides[0] || 'appellate';
+  const ordersSec = `<section class="cf-sec" id="cfOrders"><h3>Latest orders · eCourts</h3>
+      <p class="cf-muted">Status, both sides' advocates and the last ${5} orders, from the court's eCourts site. It asks for a captcha, which you type here.</p>
+      <p><button class="btn" type="button" data-orders="${esc(n.key)}" data-oside="${esc(side)}">Get the latest orders</button></p>
+      <p class="cf-muted">Or <a href="https://hcservices.ecourts.gov.in/ecourtindiaHC/cases/case_no.php?state_cd=16&amp;dist_cd=1&amp;court_code=${ECOURTS[side] || 3}&amp;stateNm=Calcutta" target="_blank" rel="noopener">open eCourts yourself</a>: case type <b>${esc(n.type)}</b>, number <b>${esc(n.num)}</b>, year <b>${esc(n.year)}</b>.</p></section>`;
   const listSec = cauAdv ? `<section class="cf-sec"><h3>Advocates in the cause list</h3><p style="margin:0">${esc(cauAdv)}</p></section>` : '';
-  $('cfBody').innerHTML = `<section class="cf-sec"><div class="running"><i></i></div><p class="cf-muted">Looking up ${esc(n.key)} on SARTHAC…</p></section>${listSec}${ordersSec}`;
+  // SARTHAC's part fills #cfS when it arrives; the orders section below it stays put meanwhile.
+  $('cfBody').innerHTML = `<div id="cfS"><section class="cf-sec"><div class="running"><i></i></div><p class="cf-muted">Looking up ${esc(n.key)} on SARTHAC…</p></section></div>${listSec}${ordersSec}<section class="cf-sec"><p class="disclaimer"><b>From SARTHAC (the State's litigation portal) and eCourts.</b> Either can be out of date or wrong. Confirm before relying on it.</p></section>`;
   if (!$('caseFile').open) $('caseFile').showModal();
   let d;
   try {
@@ -1048,7 +1070,7 @@ async function openCaseFile(caseNo, side, cauAdv) {
     if (res.status === 401) { $('caseFile').close(); return showGate('Your sign-in has expired. Please sign in again.'); }
     d = await res.json();
     if (!res.ok) throw new Error(d.error || `HTTP ${res.status}`);
-  } catch (e) { $('cfBody').firstElementChild.outerHTML = `<section class="cf-sec"><p class="note-line err">${esc(e.message)}</p></section>`; return; }
+  } catch (e) { if ($('cfS')) $('cfS').innerHTML = `<section class="cf-sec"><p class="note-line err">${esc(e.message)}</p></section>`; return; }
   let html;
   if (!d.found) {
     html = `<section class="cf-sec"><h3>Petition</h3><p class="cf-muted">Not on SARTHAC. SARTHAC only has cases where the State of West Bengal is a party, uploaded since 2016.</p></section>`;
@@ -1066,14 +1088,75 @@ async function openCaseFile(caseNo, side, cauAdv) {
     <section class="cf-sec"><h3>Petitioner's advocate</h3>
       <div class="cf-person"><b>${esc(a.name || 'Not given')}</b>${a.address ? `<span>${esc(a.address)}</span>` : ''}</div>
       ${a.mobile ? `<div class="cf-contacts">${tel(a.mobile)}</div>` : ''}</section>
-    ${listSec}
     <section class="cf-sec"><h3>Respondents (State) · ${d.respondents.length}</h3>
       ${d.respondents.map(r => `<div class="cf-resp"><div class="cf-person"><b>${esc(r.designation || r.office || 'Respondent')}</b>${r.office && r.designation ? `<span>${esc(r.office)}</span>` : ''}${r.address ? `<span>${esc(r.address)}</span>` : ''}</div>
         ${r.phones.length || r.emails.length ? `<div class="cf-contacts">${r.phones.map(tel).join('')}${r.emails.map(m => `<a href="mailto:${esc(m)}">${esc(m)}</a>`).join('')}</div>` : ''}</div>`).join('') || '<p class="cf-muted">None listed.</p>'}
-      <p class="cf-muted">The State's own advocate isn't named on SARTHAC; check the cause list or the order sheet.</p></section>`;
+      <p class="cf-muted">The State's own advocate isn't named on SARTHAC; eCourts below usually has it.</p></section>`;
   }
-  $('cfBody').innerHTML = html + (d.found ? '' : listSec) + ordersSec + `<section class="cf-sec"><p class="disclaimer"><b>From SARTHAC, the State's litigation portal.</b> It can be out of date or wrong. Confirm before relying on it.</p></section>`;
+  if ($('cfS') && $('cfTitle').textContent.startsWith(n.key)) $('cfS').innerHTML = html;
 }
+// Orders: eCourts' captcha is shown here and typed by the person; the server then searches with that answer.
+let ordersTicket = null;
+async function ordersApi(params, post) {
+  const res = post ? await fetch('/api/orders', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(params) })
+    : await fetch('/api/orders?' + new URLSearchParams(params), { cache: 'no-store' });
+  const d = await res.json().catch(() => ({}));
+  if (res.status === 401) { $('caseFile').close(); showGate('Your sign-in has expired. Please sign in again.'); throw new Error('signed out'); }
+  if (!res.ok) throw Object.assign(new Error(d.error || `HTTP ${res.status}`), { data: d });
+  return d;
+}
+function captchaForm(img, msg) {
+  $('cfOrders').innerHTML = `<h3>Latest orders · eCourts</h3>
+    <p class="cf-muted">Type the letters and numbers in the picture. This is eCourts' own check that a person is asking.</p>
+    <form class="cf-captcha" id="cfCaptcha">
+      <img src="${img}" alt="eCourts captcha picture" width="180" height="60">
+      <button class="linkbtn" type="button" id="cfNewCaptcha">New picture</button>
+      <input class="field" id="cfAnswer" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="8" placeholder="Type it here" aria-label="Captcha text" required>
+      <button class="btn" type="submit">Get orders</button>
+    </form>
+    ${msg ? `<p class="note-line err">${esc(msg)}</p>` : ''}`;
+  $('cfAnswer').focus();
+}
+async function startOrders(caseNo, side) {
+  $('cfOrders').innerHTML = '<h3>Latest orders · eCourts</h3><div class="running"><i></i></div><p class="cf-muted">Opening eCourts…</p>';
+  try { const d = await ordersApi({ action: 'start', case: caseNo, side }); ordersTicket = d.ticket; captchaForm(d.captcha); }
+  catch (e) { $('cfOrders').insertAdjacentHTML('beforeend', `<p class="note-line err">${esc(e.message)}</p>`); }
+}
+function showOrders(d) {
+  const f = d.facts || {};
+  const pick = (...ks) => { for (const k of ks) { const hit = Object.keys(f).find(x => x.toLowerCase() === k.toLowerCase()); if (hit && f[hit]) return f[hit]; } return ''; };
+  const facts = [['Next hearing', pick('Next Hearing Date')], ['Decided on', pick('Decision Date')], ['Status', pick('Stage of Case', 'Case Status', 'Nature of Disposal')], ['Coram', pick('Coram')],
+    ['Filed', pick('Filing Date')], ['Registered', pick('Registration Date')], ['CNR', pick('CNR Number') || d.cino]].filter(([, v]) => v);
+  const people = (title, list) => list && list.length ? `<div class="cf-person"><b>${title}</b>${list.map(x => `<span>${esc(x)}</span>`).join('')}</div>` : '';
+  $('cfOrders').innerHTML = `<h3>Latest orders · eCourts</h3>
+    ${facts.length ? `<dl class="cf-kv">${facts.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl>` : ''}
+    ${people('Petitioner and advocate', d.petitioners)}${people('Respondent and advocate', d.respondents)}
+    ${d.orders.length ? `<ol class="cf-orders">${d.orders.map(o => `<li><span><b>${esc(o.date || 'Undated')}</b>${o.judge ? `<span>${esc(o.judge)}</span>` : ''}</span>${o.pdf ? `<a class="filebtn" href="${esc(o.pdf)}" target="_blank" rel="noopener">Open order</a>` : '<span class="cf-muted">No PDF</span>'}</li>`).join('')}</ol>
+      <p class="cf-muted">Showing the latest ${d.orders.length} of ${d.ordersTotal} order${d.ordersTotal === 1 ? '' : 's'}. Order links work for 30 minutes.</p>`
+      : '<p class="cf-muted">eCourts shows no orders for this case yet.</p>'}`;
+}
+document.addEventListener('click', async e => {
+  const o = e.target.closest('[data-orders]');
+  if (o) { startOrders(o.dataset.orders, o.dataset.oside); return; }
+  if (e.target.id === 'cfNewCaptcha') {
+    try { const d = await ordersApi({ action: 'captcha', ticket: ordersTicket }); captchaForm(d.captcha); }
+    catch (err) { captchaForm('', err.message); }
+  }
+});
+document.addEventListener('submit', async e => {
+  if (e.target.id !== 'cfCaptcha') return;
+  e.preventDefault();
+  const answer = $('cfAnswer').value.trim();
+  const btn = e.target.querySelector('button[type=submit]'); btn.disabled = true; btn.textContent = 'Reading eCourts…';
+  try {
+    const d = await ordersApi({ action: 'search', ticket: ordersTicket, captcha: answer }, true);
+    if (!d.found) $('cfOrders').innerHTML = `<h3>Latest orders · eCourts</h3><p class="cf-muted">eCourts has no record of ${esc(d.case)} on this side of the court. Try another side from the check card, or check the number.</p>`;
+    else showOrders(d);
+  } catch (err) {
+    if (err.data?.captcha) captchaForm(err.data.captcha, err.message);
+    else { btn.disabled = false; btn.textContent = 'Get orders'; e.target.insertAdjacentHTML('afterend', `<p class="note-line err">${esc(err.message)}</p>`); }
+  }
+});
 document.addEventListener('click', e => {
   const b = e.target.closest('[data-file]'); if (!b) return;
   e.preventDefault();

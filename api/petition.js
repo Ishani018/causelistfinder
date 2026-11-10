@@ -1,11 +1,13 @@
 // The petition PDF from SARTHAC, passed through this server so it opens on any network.
 //   GET /api/petition?id=2589&year=2026&case=WPA/3212/2026   (id and year come from /api/case)
+const { refuseIfPaused } = require('../lib/pause.js');
 const { requireUser } = require('../lib/auth.js');
 const { logActivity } = require('../lib/activity.js');
 const sarthac = require('../lib/sarthac.js');
 
 module.exports = async (req, res) => {
   const user = await requireUser(req, res); if (!user) return;
+  if (refuseIfPaused(res)) return;
   const { id, year } = req.query || {};
   const name = String(req.query?.case || 'petition').replace(/[^A-Za-z0-9-]+/g, '-');
   if (!/^\d{1,9}$/.test(id || '') || !/^\d{4}$/.test(year || '')) return res.status(400).json({ error: 'Bad petition link.' });
