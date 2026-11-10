@@ -325,6 +325,20 @@ footer { margin-top: 28px; font-size: 13px; color: var(--muted); display: flex; 
   .cf-kv { grid-template-columns: 96px minmax(0, 1fr); }
 }
 
+/* Importing a case list */
+.importbtn { display: inline-flex; align-items: center; gap: 6px; margin: 2px 0 10px; color: var(--accent); font-size: 13px; font-weight: 600; cursor: pointer; }
+.importbtn:hover { text-decoration: underline; text-underline-offset: 3px; }
+.imp-sum { margin: 0; font-size: 14px; }
+.imp-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 2px 12px; }
+.imp-list label { display: flex; align-items: center; gap: 8px; padding: 6px 0; font: 500 14px var(--f-mono); cursor: pointer; }
+.imp-list input { width: 17px; height: 17px; accent-color: var(--accent); flex: none; }
+.imp-list .have { color: var(--faint); }
+.imp-list .have small { font: 400 11px var(--f-body); }
+.imp-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; padding: 14px 18px calc(14px + env(safe-area-inset-bottom, 0px)); border-top: 1px solid var(--rule); }
+.imp-foot .btn { margin-left: auto; }
+#impTitle { font: 700 16px var(--f-body); }
+@media (max-width: 560px) { #importSheet { height: auto; max-height: 92dvh; } }
+
 /* Drop anywhere */
 .dropzone-overlay { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; background: color-mix(in srgb, var(--bg) 82%, transparent); backdrop-filter: blur(2px); }
 .dropzone-overlay div { border: 2px dashed var(--accent); border-radius: 16px; padding: 36px 44px; background: var(--panel); font: 600 22px var(--f-display); color: var(--accent); }
@@ -403,6 +417,9 @@ footer { margin-top: 28px; font-size: 13px; color: var(--muted); display: flex; 
             <button class="btn" type="submit">Add</button>
           </form>
           <p class="hint">Type any way you like, or paste a whole list. Saved on this device only.</p>
+          <label class="importbtn"><input type="file" id="importFile" accept=".xlsx,.csv,.docx,.pdf,.txt,text/plain,text/csv,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.openxmlformats-officedocument.wordprocessingml.document" hidden>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
+            Import from Excel, Word, CSV or PDF</label>
           <input class="field filter" id="filter" aria-label="Find in my cases" placeholder="Find in my cases" hidden>
           <div class="empty-cases" id="emptyCases">No cases yet. Add the case numbers you appear in, e.g. <span class="mono">MAT/1451/2026</span>.</div>
           <ul class="caselist" id="mycases"></ul>
@@ -449,6 +466,13 @@ footer { margin-top: 28px; font-size: 13px; color: var(--muted); display: flex; 
   <footer><span>Case numbers stay on your device; a check sends them once and nothing is stored.</span><span><b>This tool can make mistakes.</b> Always confirm against the official cause list.</span></footer>
 </div>
 </div>
+<dialog class="cf" id="importSheet" aria-labelledby="impTitle">
+  <div class="cf-in">
+    <div class="cf-head"><h2 id="impTitle">Import cases<small id="impFrom"></small></h2><button class="cf-x" type="button" id="impClose" aria-label="Close">×</button></div>
+    <div class="cf-body" id="impBody"></div>
+    <div class="imp-foot" id="impFoot" hidden><button class="linkbtn" type="button" id="impToggle">Select none</button><button class="btn" type="button" id="impAdd">Add cases</button></div>
+  </div>
+</dialog>
 <dialog class="cf" id="caseFile" aria-labelledby="cfTitle">
   <div class="cf-in">
     <div class="cf-head"><h2 id="cfTitle"></h2><button class="cf-x" type="button" id="cfClose" aria-label="Close">×</button></div>
@@ -788,7 +812,11 @@ async function loadFiles(files) {
     $('barFill').style.width = '0';
     try {
       const { entries, raw, pages } = await readList(file);
-      if (!entries.length) { problems.push(`No cases could be read from ${file.name}. It may be a scanned copy, which is not supported yet.`); continue; }
+      if (!entries.length) {
+        // Not a cause list: maybe the person's own list of cases. Offer to import its case numbers instead.
+        try { if (extractCases(await pdfLines(file)).length) { $('progress').hidden = true; importFile(file); continue; } } catch {}
+        problems.push(`No cases could be read from ${file.name}. It may be a scanned copy, which is not supported yet.`); continue;
+      }
       const kind = listKind(entries);
       const d = parseDate((entries.find(e => e.date) || {}).date);
       const label = `${KIND_NAME[kind]} · ${d.short}`;
@@ -813,6 +841,139 @@ async function loadFiles(files) {
   refresh();
   $('results').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
 }
+
+// Importing a case list: the file is read here in the browser and never sent anywhere.
+// .xlsx and .docx are zip files of XML; the browser's own DecompressionStream unpacks them.
+async function unzip(file) {
+  const buf = new Uint8Array(await file.arrayBuffer()), dv = new DataView(buf.buffer);
+  let eocd = -1;
+  for (let i = buf.length - 22; i >= Math.max(0, buf.length - 66000); i--) if (dv.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+  if (eocd < 0) throw new Error('not a zip');
+  const files = new Map();
+  let p = dv.getUint32(eocd + 16, true);
+  for (let n = dv.getUint16(eocd + 10, true); n > 0; n--) {
+    if (dv.getUint32(p, true) !== 0x02014b50) break;
+    const method = dv.getUint16(p + 10, true), size = dv.getUint32(p + 20, true), nameLen = dv.getUint16(p + 28, true);
+    const extra = dv.getUint16(p + 30, true), comment = dv.getUint16(p + 32, true), local = dv.getUint32(p + 42, true);
+    const name = new TextDecoder().decode(buf.subarray(p + 46, p + 46 + nameLen));
+    files.set(name, async () => {
+      const start = local + 30 + dv.getUint16(local + 26, true) + dv.getUint16(local + 28, true);
+      const data = buf.subarray(start, start + size);
+      if (method === 0) return new TextDecoder().decode(data);
+      return new Response(new Blob([data]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).text();
+    });
+    p += 46 + nameLen + extra + comment;
+  }
+  return files;
+}
+const xmlText = s => s.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&#(\d+);/g, (_, n) => String.fromCharCode(n)).replace(/&amp;/g, '&');
+async function docxText(file) {
+  const z = await unzip(file);
+  const parts = [...z.keys()].filter(n => /^word\/(document|header\d*|footer\d*|footnotes)\.xml$/.test(n));
+  let out = '';
+  // A table row becomes one line ("CRA (DB) | 45 of 2024"), so a case split across cells is still found.
+  for (const n of parts) out += (await z.get(n)()).replace(/<w:tab\/>/g, '\t')
+    .replace(/<w:tc\b[\s\S]*?<\/w:tc>/g, tc => tc.replace(/<\/w:p>|<w:br\/>/g, ' ') + ' | ').replace(/<\/w:tr>/g, '\n')
+    .replace(/<\/w:p>|<w:br\/>/g, '\n').replace(/<[^>]+>/g, '') + '\n';
+  return xmlText(out);
+}
+async function xlsxText(file) {
+  const z = await unzip(file);
+  const shared = z.has('xl/sharedStrings.xml') ? [...(await z.get('xl/sharedStrings.xml')()).matchAll(/<si>([\s\S]*?)<\/si>/g)].map(m => xmlText(m[1].replace(/<rPh[\s\S]*?<\/rPh>/g, '').replace(/<[^>]+>/g, ''))) : [];
+  let out = '';
+  for (const n of [...z.keys()].filter(n => /^xl\/worksheets\/sheet\d+\.xml$/.test(n)).sort()) {
+    for (const row of (await z.get(n)()).matchAll(/<row[^>]*>([\s\S]*?)<\/row>/g)) {
+      const cells = [...row[1].matchAll(/<c([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g)].map(c => {
+        const t = (c[1].match(/t="(\w+)"/) || [])[1], v = ((c[2] || '').match(/<v>([\s\S]*?)<\/v>/) || [])[1];
+        if (t === 's') return shared[+v] || '';
+        if (t === 'inlineStr') return xmlText((c[2] || '').replace(/<[^>]+>/g, ''));
+        return v != null ? xmlText(v) : '';
+      });
+      out += cells.join(' | ') + '\n';
+    }
+  }
+  return out;
+}
+async function pdfLines(file) {
+  await prepareEngine();
+  const doc = await pdfjsLib.getDocument({ data: new Uint8Array(await file.arrayBuffer()), isEvalSupported: false }).promise;
+  let out = '';
+  for (let p = 1; p <= doc.numPages; p++) {
+    const page = await doc.getPage(p);
+    const rows = new Map();
+    for (const it of (await page.getTextContent()).items) {
+      const y = Math.round(it.transform[5] / 3);
+      (rows.get(y) || rows.set(y, []).get(y)).push(it);
+    }
+    out += [...rows.entries()].sort((a, b) => b[0] - a[0]).map(([, its]) => its.sort((a, b) => a.transform[4] - b.transform[4]).map(i => i.str).join(' ')).join('\n') + '\n';
+    page.cleanup();
+  }
+  return out;
+}
+async function caseListText(file) {
+  const name = file.name.toLowerCase();
+  if (/\.xlsx$/.test(name)) return xlsxText(file);
+  if (/\.docx$/.test(name)) return docxText(file);
+  if (/\.pdf$/.test(name) || file.type === 'application/pdf') return pdfLines(file);
+  if (/\.(csv|txt|tsv)$/.test(name) || /^text\//.test(file.type)) return file.text();
+  if (/\.(doc|xls)$/.test(name)) throw new Error(`${file.name} is in the old Word/Excel format. Open it and save it as .docx or .xlsx (or PDF), then import that.`);
+  if (/^image\//.test(file.type)) throw new Error('Photos of lists can\'t be read yet. Import the Word, Excel or PDF file instead.');
+  throw new Error(`${file.name} isn't a file type that can be imported. Use Excel (.xlsx), Word (.docx), CSV or PDF.`);
+}
+let importFound = [];
+function drawImport() {
+  const fresh = importFound.filter(c => !cases.includes(c));
+  const picked = importFound.filter(c => !cases.includes(c) && importPicked.has(c));
+  $('impAdd').textContent = picked.length ? `Add ${picked.length} case${picked.length === 1 ? '' : 's'}` : 'Nothing to add';
+  $('impAdd').disabled = !picked.length;
+  $('impToggle').textContent = picked.length === fresh.length ? 'Select none' : 'Select all';
+  $('impToggle').hidden = !fresh.length;
+}
+let importPicked = new Set();
+async function importFile(file) {
+  $('impFrom').textContent = file.name;
+  $('impFoot').hidden = true;
+  $('impBody').innerHTML = `<section class="cf-sec"><div class="running"><i></i></div><p class="cf-muted">Reading ${esc(file.name)}… It stays on this device.</p></section>`;
+  if (!$('importSheet').open) $('importSheet').showModal();
+  try {
+    importFound = extractCases(await caseListText(file));
+  } catch (e) {
+    $('impBody').innerHTML = `<section class="cf-sec"><p class="note-line err">${esc(/zip/.test(e.message) ? `${file.name} couldn't be opened. Check that it opens normally and isn't password protected.` : e.message)}</p></section>`;
+    return;
+  }
+  if (!importFound.length) {
+    $('impBody').innerHTML = `<section class="cf-sec"><p class="imp-sum">No case numbers found in <b>${esc(file.name)}</b>.</p><p class="cf-muted">Case numbers look like <span class="mono">WPA 1234 of 2025</span> or <span class="mono">FMAT/506/2026</span>. If the file is a scanned copy, it can't be read yet: paste the numbers into My cases instead.</p></section>`;
+    return;
+  }
+  const fresh = importFound.filter(c => !cases.includes(c));
+  importPicked = new Set(fresh);
+  $('impBody').innerHTML = `<section class="cf-sec"><p class="imp-sum">Found <b>${importFound.length}</b> case number${importFound.length === 1 ? '' : 's'}: <b>${fresh.length} new</b>${fresh.length < importFound.length ? `, ${importFound.length - fresh.length} already saved` : ''}.</p>
+    <p class="cf-muted">Untick any that aren't yours. Check a few against the file: numbers are read automatically.</p></section>
+    <section class="cf-sec"><ul class="imp-list">${importFound.map(c => cases.includes(c)
+      ? `<li><label class="have"><input type="checkbox" checked disabled>${esc(c)} <small>saved</small></label></li>`
+      : `<li><label><input type="checkbox" data-imp="${esc(c)}" checked>${esc(c)}</label></li>`).join('')}</ul></section>`;
+  $('impFoot').hidden = false;
+  drawImport();
+}
+$('importFile').addEventListener('change', e => { const f = e.target.files[0]; e.target.value = ''; if (f) importFile(f); });
+$('impBody').addEventListener('change', e => { const c = e.target.dataset?.imp; if (!c) return; e.target.checked ? importPicked.add(c) : importPicked.delete(c); drawImport(); });
+$('impToggle').addEventListener('click', () => {
+  const fresh = importFound.filter(c => !cases.includes(c));
+  const all = fresh.every(c => importPicked.has(c));
+  importPicked = new Set(all ? [] : fresh);
+  $('impBody').querySelectorAll('[data-imp]').forEach(b => { b.checked = importPicked.has(b.dataset.imp); });
+  drawImport();
+});
+$('impAdd').addEventListener('click', () => {
+  const add = importFound.filter(c => !cases.includes(c) && importPicked.has(c));
+  for (const c of add.reverse()) cases.unshift(c);
+  save(); refresh();
+  $('importSheet').close();
+  showError('');
+  $('count').textContent = `${cases.length} saved · ${add.length} added`;
+});
+$('impClose').addEventListener('click', () => $('importSheet').close());
+$('importSheet').addEventListener('click', e => { if (e.target === $('importSheet')) $('importSheet').close(); });
 
 // Upload: the file picker, the drop box, and dropping anywhere on the page.
 $('file').addEventListener('change', e => { loadFiles(e.target.files); e.target.value = ''; });

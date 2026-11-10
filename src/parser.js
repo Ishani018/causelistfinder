@@ -228,4 +228,34 @@ function search(index, lines) {
   return out;
 }
 
-if (typeof module !== 'undefined') module.exports = { createParser, normaliseCase, buildIndex, search, keyOf };
+// Every case number in a free-form text: a case list from Word, Excel, CSV or a PDF, one line per row.
+// Accepts "WPA 1234 of 2025", "W.P.A. No. 1234/2025", "FMAT/506/2026", "WP 3710(W)/2020", and a row split into
+// cells ("WPA | 1234 | 2025"). An application (CAN, IA…) on the same line as its main case is left out.
+const NOT_A_TYPE = new Set(['NO', 'NOS', 'OF', 'DATED', 'DT', 'DATE', 'ON', 'PAGE', 'PG', 'SL', 'SR', 'SN', 'ITEM', 'COURT', 'CT', 'ROOM', 'ACT', 'SEC',
+  'SECTION', 'RULE', 'RULES', 'ORDER', 'ART', 'ARTICLE', 'PIN', 'PS', 'PO', 'MOB', 'MOBILE', 'PH', 'TEL', 'FIR', 'GD', 'CASE', 'CASES', 'YEAR', 'IN', 'AND', 'THE',
+  'VS', 'V', 'TO', 'AT', 'BY', 'FROM', 'PARA', 'ANNEX', 'ANNEXURE', 'CHAPTER', 'VOL', 'TOTAL', 'ROLL', 'REG', 'REGN', 'ID', 'REF', 'DAY', 'DAYS', 'WEEK', 'WEEKS',
+  'MONTH', 'MONTHS', 'RS', 'INR', 'AGE', 'AGED', 'HOUSE', 'FLAT', 'PLOT', 'KM', 'APPL', 'ADV', 'MR', 'MS', 'MRS', 'DR', 'SRI', 'SMT']);
+const APPLICATION = /^(CAN|CRAN|IA|GA|CAN\(F\)|IA-?\w*)$/;
+const FIND_RE = /(?<![A-Za-z0-9])([A-Za-z](?:[A-Za-z.]{0,11})(?:-[A-Za-z][A-Za-z.]*)?(?:\s*\(\s*[A-Za-z.]+\s*\))?)\s*(?:No\.?|Nos\.?|Number)?\s*[\s\/.:|\-]\s*0*(\d{1,7})\s*(?:\/|-|\||\s+of\s+|\s+)\s*((?:19|20)\d{2})(?!\d)/gi;
+
+function extractCases(text) {
+  const found = [], seen = new Set();
+  for (let line of String(text).split(/\r?\n/)) {
+    line = line.replace(/\bW\.?\s*P\.?\s*(\d+)\s*\(\s*W\s*\)/gi, 'WPA $1').replace(/[–—]/g, '-');
+    const inLine = [];
+    for (const m of line.matchAll(FIND_RE)) {
+      const type = m[1].toUpperCase().replace(/\s+/g, '').replace(/\.(?=[A-Z(])/g, '').replace(/\.$/, '');
+      if (NOT_A_TYPE.has(type) || !/^[A-Z]/.test(type) || type.replace(/[^A-Z]/g, '').length < 2) continue;
+      const n = parseOne(`${type}/${m[2]}/${m[3]}`);
+      if (n) inLine.push(n);
+    }
+    const hasMain = inLine.some(n => !APPLICATION.test(n.type));
+    for (const n of inLine) {
+      if (hasMain && APPLICATION.test(n.type)) continue;
+      if (!seen.has(n.key)) { seen.add(n.key); found.push(n.key); }
+    }
+  }
+  return found;
+}
+
+if (typeof module !== 'undefined') module.exports = { createParser, normaliseCase, buildIndex, search, keyOf, extractCases };
