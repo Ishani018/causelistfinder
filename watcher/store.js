@@ -6,6 +6,8 @@ const path = require('path');
 
 const EMPTY_STATE = () => ({ notices: {}, archive: {}, heartbeats: {}, lastArchiveCheck: null, failures: 0 });
 
+const hits = new Map();   // hourly counters for local runs (Redis keeps them on Vercel)
+
 function fileStore(dir) {
   const pdfDir = path.join(dir, 'pdfs');
   fs.mkdirSync(pdfDir, { recursive: true });
@@ -13,7 +15,6 @@ function fileStore(dir) {
   const logFile = path.join(dir, 'log.jsonl');
   const activityFile = path.join(dir, 'activity.jsonl');
   const usersFile = path.join(dir, 'users.json');
-  const hits = new Map();
   return {
     kind: 'files', pdfDir, keepPdfs: true,
     async loadState() { try { return JSON.parse(fs.readFileSync(stateFile, 'utf8')); } catch { return EMPTY_STATE(); } },

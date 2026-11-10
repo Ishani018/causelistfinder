@@ -278,6 +278,8 @@ footer { margin-top: 28px; font-size: 13px; color: var(--muted); display: flex; 
 .gate-card .logo::before { top: 13px; left: 9px; right: 9px; box-shadow: 0 14px 0 var(--panel); }
 .gate-card .logo::after { top: 19px; height: 7px; left: 7px; right: 6px; }
 #gbtn { min-height: 44px; }
+#gbtn:empty { display: none; }
+.pwform { width: 100%; display: grid; gap: 10px; }
 .gate-card .gate-msg { color: var(--supp); font-weight: 600; }
 .gate-card .disclaimer { text-align: left; color: var(--ink); }
 .me { margin-left: auto; display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--muted); min-width: 0; }
@@ -330,6 +332,11 @@ footer { margin-top: 28px; font-size: 13px; color: var(--muted); display: flex; 
     <h1>Cause List Finder</h1>
     <p>Calcutta High Court cause lists, checked for your cases. Invited people only.</p>
     <div id="gbtn"></div>
+    <form class="pwform" id="pwForm" hidden>
+      <input class="field" id="pwUser" name="username" autocomplete="username" placeholder="Username" aria-label="Username" required>
+      <input class="field" id="pwPass" name="password" type="password" autocomplete="current-password" placeholder="Password" aria-label="Password" required>
+      <button class="btn big" type="submit">Sign in</button>
+    </form>
     <p class="gate-msg" id="gateMsg" hidden></p>
     <p class="disclaimer"><b>This tool can make mistakes.</b> It reads the court's PDFs automatically. Always confirm with the official cause list before relying on it.</p>
   </div>
@@ -1111,6 +1118,15 @@ async function signedIn({ credential }) {
     showApp(d.user);
   } catch (e) { $('gateMsg').textContent = e.message; $('gateMsg').hidden = false; }
 }
+$('pwForm').addEventListener('submit', async e => {
+  e.preventDefault(); $('gateMsg').hidden = true;
+  try {
+    const res = await fetch('/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: $('pwUser').value, password: $('pwPass').value }) });
+    const d = await res.json();
+    if (!res.ok) throw new Error(d.error || `HTTP ${res.status}`);
+    $('pwPass').value = ''; showApp(d.user);
+  } catch (err) { $('gateMsg').textContent = err.message; $('gateMsg').hidden = false; }
+});
 $('signOut').addEventListener('click', async () => {
   try { await fetch('/api/logout', { method: 'POST' }); } catch {}
   try { google.accounts.id.disableAutoSelect(); } catch {}
@@ -1123,10 +1139,10 @@ async function boot() {
     if (!res.ok) throw new Error();
     d = await res.json();
   } catch { $('app').hidden = false; $('drop').hidden = false; return; }   // not the hosted site: PDF upload only
-  if (d.open) { $('app').hidden = false; loadWatch(); watchTimer = setInterval(loadWatch, 60000); return; }   // sign-in not switched on yet
   if (d.user) return showApp(d.user);
   showGate();
-  if (!d.clientId) { $('gateMsg').textContent = "Sign-in isn't set up yet (GOOGLE_CLIENT_ID is missing in Vercel)."; $('gateMsg').hidden = false; return; }
+  if (d.mode === 'password') { $('pwForm').hidden = false; $('pwUser').focus(); return; }
+  if (d.mode !== 'google' || !d.clientId) { $('gateMsg').textContent = "This site is closed until sign-in is set up."; $('gateMsg').hidden = false; return; }
   googleButton(d.clientId);
 }
 boot();
